@@ -26,8 +26,22 @@ echo ""
 cp "$INPUT_FILE" "$OUTPUT_FILE"
 
 echo "[1/3] 删除注释和空行..."
-# 删除以 # 开头的纯注释行（保留 shebang）
-sed -i '1!{/^[[:space:]]*#/d}' "$OUTPUT_FILE"
+# 保存 shebang（如果存在）
+SHEBANG=""
+if head -1 "$INPUT_FILE" | grep -q '^#!/'; then
+    SHEBANG=$(head -1 "$INPUT_FILE")
+fi
+
+# 删除以 # 开头的纯注释行（不包括 shebang）
+sed -i '/^#!/!{/^[[:space:]]*#/d}' "$OUTPUT_FILE"
+
+# 如果没有 shebang 但需要保留第一行为空，则跳过；否则添加 shebang
+if [ -n "$SHEBANG" ]; then
+    # 确保 shebang 在第一行
+    if ! head -1 "$OUTPUT_FILE" | grep -q '^#!/'; then
+        sed -i "1i\\$SHEBANG" "$OUTPUT_FILE"
+    fi
+fi
 
 # 删除空行
 sed -i '/^[[:space:]]*$/d' "$OUTPUT_FILE"

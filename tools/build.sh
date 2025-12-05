@@ -37,8 +37,8 @@ obfuscate() {
         # 如果混淆脚本不存在，直接复制
         cp "$PROJECT_DIR/dele.sh" "$PROJECT_DIR/build/dele_temp.sh"
         
-        # 删除以 # 开头的纯注释行（保留 shebang）
-        sed -i '1!{/^[[:space:]]*#/d}' "$PROJECT_DIR/build/dele_temp.sh"
+        # 删除以 # 开头的纯注释行（不包括 shebang）
+        sed -i '/^#!/!{/^[[:space:]]*#/d}' "$PROJECT_DIR/build/dele_temp.sh"
         
         # 删除空行
         sed -i '/^[[:space:]]*$/d' "$PROJECT_DIR/build/dele_temp.sh"
