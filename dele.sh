@@ -1516,9 +1516,12 @@ menu_option_6() {
     MAGISK_VERSION=""
     HIDE_MODULES=""
     
+    # 缓存包列表以提高性能
+    INSTALLED_PACKAGES=$(pm list packages 2>/dev/null)
+    
     # 1. 检测 Magisk 官方版
     echo -e "${CYAN}[1] 检测 Magisk 官方版...${NC}"
-    if pm list packages 2>/dev/null | grep -q "com.topjohnwu.magisk"; then
+    if echo "$INSTALLED_PACKAGES" | grep -q "com.topjohnwu.magisk"; then
         ROOT_TYPE="Magisk 官方版"
         echo -e "${GREEN}[√] 检测到 Magisk 官方版${NC}"
         
@@ -1554,7 +1557,7 @@ menu_option_6() {
     
     # 2. 检测 Magisk Alpha/Delta
     echo -e "${CYAN}[2] 检测 Magisk Alpha/Delta...${NC}"
-    if pm list packages 2>/dev/null | grep -q "io.github.vvb2060.magisk"; then
+    if echo "$INSTALLED_PACKAGES" | grep -q "io.github.vvb2060.magisk"; then
         if [ -z "$ROOT_TYPE" ]; then
             ROOT_TYPE="Magisk Alpha/Delta"
         else
@@ -1578,7 +1581,7 @@ menu_option_6() {
     # 3. 检测 KernelSU
     echo -e "${CYAN}[3] 检测 KernelSU...${NC}"
     KERNELSU_DETECTED=0
-    if pm list packages 2>/dev/null | grep -q "com.sukisu.ultra"; then
+    if echo "$INSTALLED_PACKAGES" | grep -q "com.sukisu.ultra"; then
         KERNELSU_DETECTED=1
     elif [ -d "/data/adb/ksu" ]; then
         KERNELSU_DETECTED=1
@@ -1650,7 +1653,7 @@ menu_option_6() {
         fi
         
         # 清理最后的逗号和空格
-        HIDE_MODULES=$(echo "$HIDE_MODULES" | sed 's/, $//')
+        HIDE_MODULES=${HIDE_MODULES%, }
         
         if [ -z "$HIDE_MODULES" ]; then
             echo -e "${YELLOW}    [*] 未检测到已知隐藏模块${NC}"
@@ -1721,10 +1724,11 @@ menu_option_6() {
     elif echo "$ROOT_TYPE" | grep -q "Magisk 官方版"; then
         # Magisk 官方版的建议
         if [ -n "$MAGISK_VERSION" ]; then
-            # 提取主版本号
-            MAJOR_VERSION=$(echo "$MAGISK_VERSION" | grep -oE '[0-9]+' | head -n1)
+            # 提取主版本号（移除前缀字符如 v）
+            MAJOR_VERSION=$(echo "$MAGISK_VERSION" | sed 's/^[vV]//' | grep -oE '^[0-9]+' | head -n1)
             
-            if [ -n "$MAJOR_VERSION" ] && [ "$MAJOR_VERSION" -ge 24 ]; then
+            # 验证是否为有效数字
+            if [ -n "$MAJOR_VERSION" ] && [ "$MAJOR_VERSION" -eq "$MAJOR_VERSION" ] 2>/dev/null && [ "$MAJOR_VERSION" -ge 24 ]; then
                 echo -e "${GREEN}【Magisk 24.0+ 隐藏方案】${NC}"
                 echo -e "${CYAN}1. 启用 Zygisk${NC}"
                 if [ "$ZYGISK_STATUS" = "已启用" ]; then
