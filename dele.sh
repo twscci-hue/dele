@@ -283,7 +283,7 @@ show_menu() {
     echo ""
     
     echo -e "  ${YELLOW}[3]${NC} ${GREEN}清理文件部分${NC}"
-    echo -e "      ${BLUE}执行基础文件和数据清理${NC}"
+    echo -e "      ${BLUE}智能清理/指定游戏/三角洲专用${NC}"
     echo ""
     
     echo -e "  ${YELLOW}[4]${NC} ${GREEN}设备硬件标识变更${NC}"
@@ -1109,9 +1109,134 @@ echo -e "\n检测完成 请查看检测结果（检查结果在内部储存）"
     read dummy
 }
 
-menu_option_3() {
-    echo -e "${YELLOW}[3] 正在执行基础文件清理...${NC}"
-    echo -e "${BLUE}执行基础文件和数据清理${NC}"
+# ==================== 游戏包名定义 ====================
+# 三角洲行动
+DELTA_CN="com.tencent.tmgp.dfm"
+DELTA_TW="com.garena.game.codm"
+DELTA_INTL="com.activision.callofduty.shooter"
+
+# 暗区突围
+DZB_CN="com.tencent.tmgp.aqtw"
+DZB_TW="com.netease.aqtw.tw"
+DZB_INTL="com.netease.aqtw"
+
+# 王者荣耀
+HOK_CN="com.tencent.tmgp.sgame"
+HOK_TW="tw.txwy.and.kog"
+HOK_INTL="com.ngame.allstar.eu"
+
+# 和平精英
+PUBG_CN="com.tencent.tmgp.pubgmhd"
+PUBG_TW="com.vng.pubgmobile"
+PUBG_INTL="com.tencent.ig"
+
+# ==================== 清理关键词定义 ====================
+HIGH_RISK_KEYWORDS="turing turingdfp turingfd qimei beacon ano_tmp apm hawk jwt_token itop_login crashrecord crashSight"
+CACHE_KEYWORDS="cache tbs webview tmp temp log dex odex code_cache"
+SDK_KEYWORDS="midas msdk gcloud gvoice"
+WHITELIST_DIRS="lib libs lib64 app_lib shared_libs native_libs"
+
+# ==================== 工具函数 ====================
+# 智能判断目录是否需要清理
+should_clean_dir() {
+    local dir_name="$1"
+    local dir_lower=$(echo "$dir_name" | tr 'A-Z' 'a-z')
+    
+    # 检查白名单（不清理）
+    for keyword in $WHITELIST_DIRS; do
+        case "$dir_lower" in
+            *"$keyword"*) return 1 ;;
+        esac
+    done
+    
+    # 检查高风险关键词
+    for keyword in $HIGH_RISK_KEYWORDS; do
+        case "$dir_lower" in
+            *"$keyword"*) return 0 ;;
+        esac
+    done
+    
+    # 检查缓存关键词
+    for keyword in $CACHE_KEYWORDS; do
+        case "$dir_lower" in
+            *"$keyword"*) return 0 ;;
+        esac
+    done
+    
+    return 1  # 默认不清理
+}
+
+# 智能清理单个游戏
+smart_clean_game() {
+    local pkg="$1"
+    local game_name="$2"
+    local base="/data/data/$pkg"
+    local sdcard="/storage/emulated/0/Android/data/$pkg"
+    
+    echo -e "${CYAN}[清理] $game_name ($pkg)${NC}"
+    
+    # 检查是否安装
+    if [ ! -d "$base" ]; then
+        echo -e "${YELLOW}  [!] 游戏未安装，跳过${NC}"
+        return 1
+    fi
+    
+    local cleaned=0
+    
+    # 扫描并清理 app_* 目录
+    for dir in "$base"/app_*; do
+        if [ -d "$dir" ]; then
+            dir_name=$(basename "$dir")
+            if should_clean_dir "$dir_name"; then
+                rm -rf "$dir" 2>/dev/null && {
+                    echo -e "${GREEN}  [√] 清理: $dir_name${NC}"
+                    cleaned=$((cleaned + 1))
+                }
+            fi
+        fi
+    done
+    
+    # 扫描并清理 files 子目录
+    if [ -d "$base/files" ]; then
+        for item in "$base/files"/*; do
+            if [ -e "$item" ]; then
+                item_name=$(basename "$item")
+                if should_clean_dir "$item_name"; then
+                    rm -rf "$item" 2>/dev/null && {
+                        echo -e "${GREEN}  [√] 清理: files/$item_name${NC}"
+                        cleaned=$((cleaned + 1))
+                    }
+                fi
+            fi
+        done
+    fi
+    
+    # 清理通用目录
+    for dir in cache code_cache databases shared_prefs; do
+        if [ -d "$base/$dir" ]; then
+            rm -rf "$base/$dir" 2>/dev/null && {
+                echo -e "${GREEN}  [√] 清理: $dir${NC}"
+                cleaned=$((cleaned + 1))
+            }
+        fi
+    done
+    
+    # 清理外部存储
+    if [ -d "$sdcard" ]; then
+        rm -rf "$sdcard/files" "$sdcard/cache" 2>/dev/null && {
+            echo -e "${GREEN}  [√] 清理: 外部存储${NC}"
+            cleaned=$((cleaned + 1))
+        }
+    fi
+    
+    echo -e "${GREEN}  [完成] 共清理 $cleaned 个目录${NC}"
+    return 0
+}
+
+# 原有三角洲清理功能（保持不变）
+delta_dedicated_clean() {
+    echo -e "${YELLOW}[3] 正在执行三角洲专用清理...${NC}"
+    echo -e "${BLUE}执行原有的三角洲行动清理逻辑${NC}"
     echo ""
     
     echo -e "${CYAN}[步骤1] 获取游戏UID...${NC}"
@@ -1226,10 +1351,195 @@ menu_option_3() {
     iptables -t nat -F 
     echo -e "${GREEN}[√] 清理iptables规则${NC}"
     
-    echo -e "${GREEN}[√] 基础文件清理完成${NC}"
+    echo -e "${GREEN}[√] 三角洲专用清理完成${NC}"
+}
+
+# 智能清理模式
+smart_clean_mode() {
+    echo -e "${CYAN}===== 智能清理模式 =====${NC}"
+    echo -e "${BLUE}自动检测已安装游戏，智能识别风控目录${NC}"
     echo ""
-    echo -n "按回车键继续... "
-    read dummy
+    
+    local total_cleaned=0
+    
+    # 检测并清理三角洲行动
+    echo -e "${YELLOW}[检测] 三角洲行动...${NC}"
+    if [ -d "/data/data/$DELTA_CN" ]; then
+        smart_clean_game "$DELTA_CN" "三角洲行动-国服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$DELTA_TW" ]; then
+        smart_clean_game "$DELTA_TW" "三角洲行动-台服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$DELTA_INTL" ]; then
+        smart_clean_game "$DELTA_INTL" "三角洲行动-国际服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    
+    # 检测并清理暗区突围
+    echo ""
+    echo -e "${YELLOW}[检测] 暗区突围...${NC}"
+    if [ -d "/data/data/$DZB_CN" ]; then
+        smart_clean_game "$DZB_CN" "暗区突围-国服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$DZB_TW" ]; then
+        smart_clean_game "$DZB_TW" "暗区突围-台服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$DZB_INTL" ]; then
+        smart_clean_game "$DZB_INTL" "暗区突围-国际服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    
+    # 检测并清理王者荣耀
+    echo ""
+    echo -e "${YELLOW}[检测] 王者荣耀...${NC}"
+    if [ -d "/data/data/$HOK_CN" ]; then
+        smart_clean_game "$HOK_CN" "王者荣耀-国服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$HOK_TW" ]; then
+        smart_clean_game "$HOK_TW" "王者荣耀-台服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$HOK_INTL" ]; then
+        smart_clean_game "$HOK_INTL" "王者荣耀-国际服(AOV)"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    
+    # 检测并清理和平精英
+    echo ""
+    echo -e "${YELLOW}[检测] 和平精英...${NC}"
+    if [ -d "/data/data/$PUBG_CN" ]; then
+        smart_clean_game "$PUBG_CN" "和平精英-国服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$PUBG_TW" ]; then
+        smart_clean_game "$PUBG_TW" "和平精英-台服"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    if [ -d "/data/data/$PUBG_INTL" ]; then
+        smart_clean_game "$PUBG_INTL" "和平精英-国际服(PUBG)"
+        total_cleaned=$((total_cleaned + 1))
+    fi
+    
+    echo ""
+    if [ $total_cleaned -eq 0 ]; then
+        echo -e "${YELLOW}[!] 未检测到已安装的游戏${NC}"
+    else
+        echo -e "${GREEN}[√] 智能清理完成，共处理 $total_cleaned 个游戏${NC}"
+    fi
+}
+
+# 指定游戏清理菜单
+specific_game_clean() {
+    while true; do
+        clear
+        echo -e "${CYAN}===== 指定游戏清理 =====${NC}"
+        echo ""
+        echo -e "${PURPLE}【三角洲行动】${NC}"
+        echo -e "  ${YELLOW}[1]${NC} 国服 (com.tencent.tmgp.dfm)"
+        echo -e "  ${YELLOW}[2]${NC} 台服 (com.garena.game.codm)"
+        echo -e "  ${YELLOW}[3]${NC} 国际服 (com.activision.callofduty.shooter)"
+        echo ""
+        echo -e "${PURPLE}【暗区突围】${NC}"
+        echo -e "  ${YELLOW}[4]${NC} 国服 (com.tencent.tmgp.aqtw)"
+        echo -e "  ${YELLOW}[5]${NC} 台服 (com.netease.aqtw.tw)"
+        echo -e "  ${YELLOW}[6]${NC} 国际服 (com.netease.aqtw)"
+        echo ""
+        echo -e "${PURPLE}【王者荣耀】${NC}"
+        echo -e "  ${YELLOW}[7]${NC} 国服 (com.tencent.tmgp.sgame)"
+        echo -e "  ${YELLOW}[8]${NC} 台服 (tw.txwy.and.kog)"
+        echo -e "  ${YELLOW}[9]${NC} 国际服/AOV (com.ngame.allstar.eu)"
+        echo ""
+        echo -e "${PURPLE}【和平精英】${NC}"
+        echo -e "  ${YELLOW}[10]${NC} 国服 (com.tencent.tmgp.pubgmhd)"
+        echo -e "  ${YELLOW}[11]${NC} 台服 (com.vng.pubgmobile)"
+        echo -e "  ${YELLOW}[12]${NC} 国际服/PUBG (com.tencent.ig)"
+        echo ""
+        echo -e "  ${YELLOW}[A]${NC} 清理全部已安装游戏"
+        echo -e "  ${YELLOW}[0]${NC} 返回上级菜单"
+        echo ""
+        echo -n "请选择: "
+        read game_choice
+        
+        case $game_choice in
+            1) smart_clean_game "$DELTA_CN" "三角洲行动-国服" ;;
+            2) smart_clean_game "$DELTA_TW" "三角洲行动-台服" ;;
+            3) smart_clean_game "$DELTA_INTL" "三角洲行动-国际服" ;;
+            4) smart_clean_game "$DZB_CN" "暗区突围-国服" ;;
+            5) smart_clean_game "$DZB_TW" "暗区突围-台服" ;;
+            6) smart_clean_game "$DZB_INTL" "暗区突围-国际服" ;;
+            7) smart_clean_game "$HOK_CN" "王者荣耀-国服" ;;
+            8) smart_clean_game "$HOK_TW" "王者荣耀-台服" ;;
+            9) smart_clean_game "$HOK_INTL" "王者荣耀-国际服(AOV)" ;;
+            10) smart_clean_game "$PUBG_CN" "和平精英-国服" ;;
+            11) smart_clean_game "$PUBG_TW" "和平精英-台服" ;;
+            12) smart_clean_game "$PUBG_INTL" "和平精英-国际服(PUBG)" ;;
+            [Aa]) smart_clean_mode ;;
+            0) return ;;
+            *) echo -e "${RED}无效选择${NC}" ;;
+        esac
+        
+        if [ "$game_choice" != "0" ]; then
+            echo ""
+            echo -n "按回车键继续... "
+            read dummy
+        fi
+    done
+}
+
+# 主菜单选项3
+menu_option_3() {
+    while true; do
+        clear
+        echo -e "${CYAN}===== 清理文件部分 =====${NC}"
+        echo ""
+        echo -e "${BLUE}请选择清理模式:${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[1]${NC} ${GREEN}智能清理（推荐）${NC}"
+        echo -e "      ${BLUE}自动检测已安装游戏，智能识别风控目录${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[2]${NC} ${GREEN}指定游戏清理${NC}"
+        echo -e "      ${BLUE}选择具体游戏进行针对性清理${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[3]${NC} ${GREEN}三角洲专用清理（原有功能）${NC}"
+        echo -e "      ${BLUE}执行原有的三角洲行动清理逻辑${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[0]${NC} ${PURPLE}返回主菜单${NC}"
+        echo ""
+        echo -n "请选择 (0-3): "
+        read clean_choice
+        
+        case $clean_choice in
+            1)
+                clear
+                smart_clean_mode
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            2)
+                specific_game_clean
+                ;;
+            3)
+                clear
+                delta_dedicated_clean
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}无效选择，请重新输入${NC}"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 menu_option_4() {
