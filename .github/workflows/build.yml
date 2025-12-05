@@ -22,8 +22,7 @@ jobs:
       - name: Obfuscate script
         run: |
           chmod +x tools/obfuscate.sh
-          cp dele.sh dele_temp.sh
-          ./tools/obfuscate.sh dele_temp.sh dele_obfuscated.sh
+          ./tools/obfuscate.sh dele.sh dele_obfuscated.sh
           
       - name: Compile to binary
         run: |
@@ -31,7 +30,7 @@ jobs:
           shc -f dele_obfuscated.sh -o dele-arm64 -r
           
           # 清理临时文件
-          rm -f dele_temp.sh dele_obfuscated.sh dele_obfuscated.sh.x.c
+          rm -f dele_obfuscated.sh dele_obfuscated.sh.x.c
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
