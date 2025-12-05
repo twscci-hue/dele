@@ -1,4 +1,4 @@
-
+#!/bin/bash
 
 # 三角洲痕迹清理工具
 # 集成高级自毁机制
@@ -805,6 +805,8 @@ detect_installed_games() {
 }
 
 # 判断目录是否应该清理
+# 参数: $1 - 目录名称
+# 返回值: 0 = 应该清理, 1 = 不应该清理
 should_clean_dir() {
     local dir_name="$1"
     local dir_lower=$(echo "$dir_name" | tr 'A-Z' 'a-z')
@@ -828,6 +830,8 @@ should_clean_dir() {
 }
 
 # 智能清理游戏
+# 参数: $1 - 游戏包名, $2 - 游戏显示名称
+# 功能: 基于关键词智能清理游戏缓存和风险文件
 smart_clean_game() {
     local pkg="$1"
     local game_name="$2"
@@ -869,7 +873,7 @@ clean_delta_game() {
     echo ""
     
     echo -e "${CYAN}[步骤1] 获取游戏UID...${NC}"
-    APP_UID=$(dumpsys package $pkg | grep uid= | awk '{print $1}' | cut -d'=' -f2 | uniq)
+    APP_UID=$(dumpsys package "$pkg" | grep uid= | awk '{print $1}' | cut -d'=' -f2 | uniq)
     sleep 1
     echo -e "${GREEN}[√] 当前三角洲UID: $APP_UID${NC}"
     sleep 1
@@ -1041,8 +1045,8 @@ menu_option_3() {
                 # 查找对应的游戏
                 local selected_game=""
                 for mapping in $game_map; do
-                    local map_index=$(echo $mapping | cut -d: -f1)
-                    local map_game=$(echo $mapping | cut -d: -f2)
+                    local map_index=$(echo "$mapping" | cut -d: -f1)
+                    local map_game=$(echo "$mapping" | cut -d: -f2)
                     if [ "$map_index" = "$choice" ]; then
                         selected_game="$map_game"
                         break
