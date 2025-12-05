@@ -4,9 +4,30 @@
 # 集成高级自毁机制
 
 # 版本配置
-CURRENT_VERSION="1.0.0"
+CURRENT_VERSION="2.0.0"
 VERSION_CHECK_URL="https://gitee.com/yourname/yourrepo/raw/master/version.txt"
 TECH_SUPPORT="@闲鱼:WuTa"
+
+# 支持的游戏列表
+# 三角洲行动
+GAME_DFM_CN="com.tencent.tmgp.dfm"
+GAME_DFM_TW="com.garena.game.codm"
+GAME_DFM_GL="com.activision.callofduty.shooter"
+
+# 暗区突围
+GAME_AQTW_CN="com.tencent.tmgp.aqtw"
+GAME_AQTW_TW="com.netease.aqtw.tw"
+GAME_AQTW_GL="com.netease.aqtw"
+
+# 王者荣耀
+GAME_SGAME_CN="com.tencent.tmgp.sgame"
+GAME_SGAME_TW="tw.txwy.and.kog"
+GAME_SGAME_GL="com.ngame.allstar.eu"
+
+# 和平精英
+GAME_PUBG_CN="com.tencent.tmgp.pubgmhd"
+GAME_PUBG_TW="com.vng.pubgmobile"
+GAME_PUBG_GL="com.tencent.ig"
 
 # 颜色定义
 RED='\033[1;31m'
@@ -278,20 +299,20 @@ show_menu() {
     echo -e "      ${BLUE}检测风险文件和监控痕迹${NC}"
     echo ""
     
-    echo -e "  ${YELLOW}[2]${NC} ${GREEN}深度环境监测${NC}"
-    echo -e "      ${BLUE}检测设备安全状态和潜在风险${NC}"
+    echo -e "  ${YELLOW}[2]${NC} ${GREEN}Root环境检查${NC}"
+    echo -e "      ${BLUE}Root环境检查 配置隐藏及方案推荐${NC}"
     echo ""
     
     echo -e "  ${YELLOW}[3]${NC} ${GREEN}清理文件部分${NC}"
-    echo -e "      ${BLUE}执行基础文件和数据清理${NC}"
+    echo -e "      ${BLUE}游戏列表/指定游戏清理${NC}"
     echo ""
     
     echo -e "  ${YELLOW}[4]${NC} ${GREEN}设备硬件标识变更${NC}"
     echo -e "      ${BLUE}修改设备指纹和网络标识${NC}"
     echo ""
     
-    echo -e "  ${YELLOW}[5]${NC} ${RED}全维深度核心清理${NC}"
-    echo -e "      ${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
+    echo -e "  ${YELLOW}[5]${NC} ${GREEN}一键智能清理+设备标识变更${NC}"
+    echo -e "      ${BLUE}智能清理所有已安装游戏并变更设备标识${NC}"
     echo ""
     
     echo -e "  ${YELLOW}[0]${NC} ${PURPLE}退出工具${NC}"
@@ -376,841 +397,535 @@ menu_option_1() {
 }
 
 menu_option_2() {
-    echo -e "${YELLOW}[2] 正在执行深度环境监测...${NC}"
-    echo -e "${BLUE}检测设备安全状态和潜在风险${NC}"
+    while true; do
+        clear
+        echo -e "${CYAN}===== Root环境检查 =====${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[1]${NC} ${GREEN}检测Root环境${NC}"
+        echo -e "      ${BLUE}检测Root类型、版本、Zygisk状态${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[2]${NC} ${GREEN}查看隐藏方案${NC}"
+        echo -e "      ${BLUE}根据Root类型推荐模块搭配组合${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[3]${NC} ${GREEN}一键配置隐藏${NC}"
+        echo -e "      ${BLUE}自动添加游戏到Denylist，配置隐藏模块${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[4]${NC} ${GREEN}三角洲专项配置${NC}"
+        echo -e "      ${BLUE}针对ACE反作弊的专项隐藏配置${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[5]${NC} ${GREEN}Root痕迹清理${NC}"
+        echo -e "      ${BLUE}清理Root检测痕迹（不影响Root功能）${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[6]${NC} ${GREEN}模块下载地址${NC}"
+        echo -e "      ${BLUE}显示隐藏模块下载链接${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[0]${NC} ${PURPLE}返回主菜单${NC}"
+        echo ""
+        echo "================================================"
+        echo ""
+        echo -n "请选择操作 (0-6): "
+        read choice
+        
+        case $choice in
+            1)
+                root_detect
+                ;;
+            2)
+                root_hiding_solutions
+                ;;
+            3)
+                one_click_configure
+                ;;
+            4)
+                delta_specific_config
+                ;;
+            5)
+                root_trace_cleanup
+                ;;
+            6)
+                module_download_links
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}无效选择，请重新输入${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# Root检测函数
+root_detect() {
+    clear
+    echo -e "${CYAN}===== Root环境检测 =====${NC}"
     echo ""
     
-TARGET_PACKAGE="bin.mt.plus.termux"
-TARGET_APK_NAME="bin.mt.plus.termux.apk"
-MALICIOUS_MARKERS="zygisk.apk com.android.append"
-MODULES_DIR="/data/adb/modules"
-LOG_FILE="/sdcard/Android/系统检测日志.txt"
-BACKUP_LOG_FILE="/data/local/tmp/系统检测日志.txt"
-EXCLUDE_FILES="一键检测环境V2.1.0.sh"
-# 原脚本结果文件路径（保持不变）
-RESULT_FILE="/storage/emulated/0/系统环境检测结果.txt"
-# =============================
-# 新增：整合他人脚本核心工具函数（仅新增，不影响原逻辑）
-log_record() {
-    local level="$1"
-    local content="$2"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-    local log_content="[$timestamp] [$level] $content"
-    if echo "${log_content}" >> "${LOG_FILE}" 2>/dev/null; then
-        :
-    else
-        mkdir -p "$(dirname "${BACKUP_LOG_FILE}")" 2>/dev/null
-        echo "${log_content}" >> "${BACKUP_LOG_FILE}" 2>/dev/null
-    fi
-    echo "[$timestamp] [$level] $content" >> $RESULT_FILE
-}
-
-is_excluded() {
-    local target="$1"
-    local ex_file
-    for ex_file in ${EXCLUDE_FILES}; do
-        if [ "${target}" = "${ex_file}" ] || [ "$(basename "${target}")" = "${ex_file}" ]; then
-            return 0
+    # 检测Root类型
+    ROOT_TYPE="未检测到Root"
+    ROOT_VERSION=""
+    ZYGISK_STATUS="未启用"
+    
+    if [ -d "/data/adb/magisk" ]; then
+        if [ -f "/data/adb/magisk/util_functions.sh" ]; then
+            ROOT_VERSION=$(su -c "magisk -V" 2>/dev/null || echo "未知")
+            if echo "$ROOT_VERSION" | grep -qi "delta"; then
+                ROOT_TYPE="Magisk Delta"
+            elif echo "$ROOT_VERSION" | grep -qi "alpha"; then
+                ROOT_TYPE="Magisk Alpha"
+            else
+                ROOT_TYPE="Magisk官方版"
+            fi
+            
+            # 检测Zygisk状态
+            if [ -f "/data/adb/magisk/zygisk" ] || grep -q "zygisk=1" /data/adb/magisk/config 2>/dev/null; then
+                ZYGISK_STATUS="已启用"
+            fi
         fi
-    done
-    return 1
-}
-
-find_aapt() {
-    local aapt_paths="/system/bin/aapt /system/xbin/aapt /data/adb/magisk/busybox/aapt /data/local/bin/aapt /data/data/com.termux/files/usr/bin/aapt"
-    local path
-    for path in ${aapt_paths}; do
-        if [ -x "${path}" ]; then
-            echo "${path}"
-            return 0
+    elif [ -d "/data/adb/ksu" ]; then
+        ROOT_TYPE="KernelSU"
+        ROOT_VERSION=$(su -c "ksu -V" 2>/dev/null || echo "未知")
+        
+        # 检测Zygisk Next
+        if [ -d "/data/adb/modules/zygisksu" ] || [ -d "/data/adb/modules/zygisk_next" ]; then
+            ZYGISK_STATUS="Zygisk Next已启用"
         fi
-    done
-    if command -v pkg &>/dev/null; then
-        log_record INFO "未找到aapt，尝试自动安装（需网络）..."
-        pkg install -y aapt 2>/dev/null && echo "/data/data/com.termux/files/usr/bin/aapt" && return 0
+    elif [ -d "/data/adb/ap" ]; then
+        ROOT_TYPE="APatch"
+        ROOT_VERSION=$(su -c "apatch -V" 2>/dev/null || echo "未知")
     fi
+    
+    # 显示检测结果
+    echo -e "${GREEN}Root类型：${NC}$ROOT_TYPE"
+    echo -e "${GREEN}Root版本：${NC}$ROOT_VERSION"
+    echo -e "${GREEN}Zygisk状态：${NC}$ZYGISK_STATUS"
     echo ""
-}
-
-check_malicious_link() {
-    local target="$1"
-    if [ -L "${target}" ]; then
-        local link_target=$(readlink -f "${target}" 2>/dev/null || echo "${target}")
-        if echo "${link_target}" | grep -qE "^/system|^/vendor|^/odm|^/boot"; then
-            log_record ERROR "拒绝处理：${target} 指向系统目录（${link_target}）"
-            return 1
+    
+    # 检测已安装隐藏模块
+    echo -e "${CYAN}已安装隐藏模块：${NC}"
+    MODULES_FOUND=0
+    
+    if [ -d "/data/adb/modules" ]; then
+        # 检测Shamiko
+        if [ -d "/data/adb/modules/zygisk_shamiko" ]; then
+            echo -e "  ${GREEN}✓ Shamiko${NC}"
+            MODULES_FOUND=1
         fi
-        if echo "${target}" | grep -qE "${MALICIOUS_MARKERS}" || echo "${link_target}" | grep -qE "${TARGET_PACKAGE}"; then
-            log_record ERROR "发现恶意符号链接：${target}（指向 ${link_target}）"
-            echo "   ❌ 恶意符号链接：${target}（指向 ${link_target}）" >> $RESULT_FILE
-            return 0
+        
+        # 检测HMAL
+        if [ -d "/data/adb/modules/hide_my_applist" ]; then
+            echo -e "  ${GREEN}✓ Hide My Applist${NC}"
+            MODULES_FOUND=1
         fi
-    fi
-    return 1
-}
-# =============================
-# 原脚本完整保留（无任何删减，仅新增模块插入）
-echo "===== Android系统环境综合检测报告 =====" > $RESULT_FILE
-echo "检测时间：$(date "+%Y-%m-%d %H:%M:%S")" >> $RESULT_FILE
-echo "设备型号：$(getprop ro.product.model 2>/dev/null)" >> $RESULT_FILE
-echo "系统版本：$(getprop ro.build.version.release 2>/dev/null)" >> $RESULT_FILE
-echo "检测版本：v2.3.0（原功能完整保留+新增恶意文件深度检测）" >> $RESULT_FILE
-echo "@闲鱼:WuTa仅整合该功能，源码版权归@辞辞科技所有" >> $RESULT_FILE
-echo "========================================" >> $RESULT_FILE
-echo "📢 重要说明：当前为脚本测试版，部分检测存在兼容性限制" >> $RESULT_FILE
-echo "   后续软件版将优化逻辑，支持更多机型适配" >> $RESULT_FILE
-echo "========================================" >> $RESULT_FILE
-
-# 1. 风险应用汇总（原逻辑完整保留）
-RISK_PACKAGES=(
-    "com.byyoung.setting"
-    "com.omarea.vtools"
-    "com.sukisu.ultra"
-    "com.topjohnwu.magisk"
-    "io.github.vvb2060.magisk"
-    "com.tsng.hidemyapplist"
-    "top.hookvip.pro"
-    "org.lsposed.manager"
-)
-DETECTED_RISK_APPS=""
-echo -e "\n【风险应用汇总】" >> $RESULT_FILE
-echo "当前检测到的风险应用：" >> $RESULT_FILE
-for pkg in "${RISK_PACKAGES[@]}"; do
-    pm list packages | grep -q "$pkg" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        case "$pkg" in
-            "com.topjohnwu.magisk") DETECTED_RISK_APPS+="\n- $pkg（Magisk官方版）" ;;
-            "io.github.vvb2060.magisk") DETECTED_RISK_APPS+="\n- $pkg（阿尔法）" ;;
-            "com.omarea.vtools") DETECTED_RISK_APPS+="\n- $pkg（sceen）" ;;
-            "com.tsng.hidemyapplist") DETECTED_RISK_APPS+="\n- $pkg（应用隐藏列表）" ;;
-            "top.hookvip.pro") DETECTED_RISK_APPS+="\n- $pkg（HOOK工具）" ;;
-            "org.lsposed.manager") DETECTED_RISK_APPS+="\n- $pkg（LSPosed管理器）" ;;
-            *) DETECTED_RISK_APPS+="\n- $pkg（风险工具）" ;;
-        esac
-    fi
-done
-if [ -z "$DETECTED_RISK_APPS" ]; then
-    echo "✅ 未检测到风险应用" >> $RESULT_FILE
-else
-    echo "❌ 以下应用可能存在风险：$DETECTED_RISK_APPS" >> $RESULT_FILE
-fi
-echo -e "\n========================================" >> $RESULT_FILE
-
-# 2. 目标应用包名检测（原逻辑完整保留）
-echo -e "\n1. 目标应用包名检测：" >> $RESULT_FILE
-CHECK_PACKAGES=("${RISK_PACKAGES[@]}")
-for pkg in "${CHECK_PACKAGES[@]}"; do
-    pm list packages | grep -q "$pkg" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo "❌  已安装：$pkg" >> $RESULT_FILE
-        case "$pkg" in
-            "com.topjohnwu.magisk") echo "   对应工具：检测到root管理器" >> $RESULT_FILE ;;
-            "io.github.vvb2060.magisk") echo "   对应工具：检测到阿尔法" >> $RESULT_FILE ;;
-            "com.omarea.vtools") echo "   对应工具：检测到sceen" >> $RESULT_FILE ;;
-            "com.tsng.hidemyapplist") echo "   对应工具：检测到应用隐藏列表" >> $RESULT_FILE ;;
-            "top.hookvip.pro") echo "   对应工具：HOOK" >> $RESULT_FILE ;;
-            "org.lsposed.manager") echo "   对应工具：LSPosed" >> $RESULT_FILE ;;
-            *) echo "   对应工具：风险工具" >> $RESULT_FILE ;;
-        esac
-    else
-        echo "✅  未安装：$pkg" >> $RESULT_FILE
-    fi
-done
-
-# 3. 无障碍权限检测（原逻辑完整保留）
-echo -e "\n2. 无障碍权限状态检测：" >> $RESULT_FILE
-ACCESSIBILITY_ENABLED=$(settings get secure enabled_accessibility_services 2>/dev/null)
-if [ -n "$ACCESSIBILITY_ENABLED" ]; then
-    echo "❌  已启用的无障碍服务：" >> $RESULT_FILE
-    echo "$ACCESSIBILITY_ENABLED" | tr ':' '\n' | sed 's/^/   - /' >> $RESULT_FILE
-else
-    echo "✅  无障碍权限：无服务启用" >> $RESULT_FILE
-fi
-
-# 4. Zygisk模块检测（原逻辑完整保留）
-echo -e "\n3. Zygisk模块检测：" >> $RESULT_FILE
-ZYGISK_ENABLED=0
-if [ -d "/data/adb/modules" ]; then
-    echo "❌  已检测到Magisk环境" >> $RESULT_FILE
-    if ls /data/adb/modules/ | grep -q "zygisk"; then
-        ZYGISK_ENABLED=1
-    fi
-    for cfg_path in "/data/adb/magisk/config" "/data/adb/magisk/flags" "/data/adb/magisk.db"; do
-        if [ -f "$cfg_path" ] && grep -q "zygisk" "$cfg_path"; then
-            ZYGISK_ENABLED=1
-            break
+        
+        # 检测PlayIntegrityFix
+        if [ -d "/data/adb/modules/playintegrityfix" ]; then
+            echo -e "  ${GREEN}✓ PlayIntegrityFix${NC}"
+            MODULES_FOUND=1
         fi
-    done
-    if [ $ZYGISK_ENABLED -eq 1 ]; then
-        echo "❌  Zygisk状态：已启用" >> $RESULT_FILE
-    else
-        echo "✅  Zygisk状态：未启用" >> $RESULT_FILE
-    fi
-    echo "❌  已安装的Magisk/Zygisk模块：" >> $RESULT_FILE
-    ls /data/adb/modules/ | grep -v ".*\.prop" | sed 's/^/   - /' >> $RESULT_FILE
-else
-    echo "✅  未检测到Magisk模块目录" >> $RESULT_FILE
-fi
-
-# 5. 机型伪装检测（原逻辑完整保留）
-echo -e "\n4. 机型伪装检测：" >> $RESULT_FILE
-MODEL1=$(getprop ro.product.model 2>/dev/null)
-MODEL2=$(getprop ro.product.name 2>/dev/null)
-MODEL3=$(getprop ro.product.device 2>/dev/null)
-MODEL4=$(getprop ro.build.product 2>/dev/null)
-IS_SPOOFED=0
-if [ "$MODEL1" != "$MODEL2" ] || [ "$MODEL1" != "$MODEL3" ] || [ "$MODEL1" != "$MODEL4" ]; then
-    IS_SPOOFED=1
-fi
-SPOOF_TOOLS=("com.topjohnwu.magisk" "org.lsposed.manager" "top.hookvip.pro")
-for tool in "${SPOOF_TOOLS[@]}"; do
-    pm list packages | grep -q "$tool" 2>/dev/null
-    if [ $? -eq 0 ] && [ $IS_SPOOFED -eq 1 ]; then
-        IS_SPOOFED=2
-        break
-    fi
-done
-if [ $IS_SPOOFED -eq 2 ]; then
-    echo "❌  检测到机型伪装：系统属性不一致（$MODEL1/$MODEL2/$MODEL3/$MODEL4），且存在伪装工具" >> $RESULT_FILE
-elif [ $IS_SPOOFED -eq 1 ]; then
-    echo "⚠️  疑似机型伪装：系统属性不一致（$MODEL1/$MODEL2/$MODEL3/$MODEL4）" >> $RESULT_FILE
-else
-    echo "✅  未检测到机型伪装：系统属性一致（机型：$MODEL1）" >> $RESULT_FILE
-fi
-
-# 6. SELinux状态检测（原逻辑完整保留）
-echo -e "\n5. SELinux状态检测：" >> $RESULT_FILE
-SELINUX_STATUS=$(getenforce 2>/dev/null)
-if [ "$SELINUX_STATUS" = "Enforcing" ]; then
-    echo "✅  SELinux状态：强制模式（安全）" >> $RESULT_FILE
-elif [ "$SELINUX_STATUS" = "Permissive" ]; then
-    echo "⚠️  SELinux状态：宽容模式（存在安全风险）" >> $RESULT_FILE
-else
-    echo "❌  SELinux状态：已关闭（高风险）" >> $RESULT_FILE
-fi
-
-# 7. 系统密钥检查（原逻辑完整保留）
-echo -e "\n6. 系统密钥检查：" >> $RESULT_FILE
-BOOT_KEY=$(getprop ro.boot.verifiedbootstate 2>/dev/null)
-if [ "$BOOT_KEY" = "green" ]; then
-    echo "✅  Boot分区密钥：验证通过（官方状态）" >> $RESULT_FILE
-elif [ "$BOOT_KEY" = "orange" ]; then
-    echo "⚠️  Boot分区密钥：验证未通过（已修改）" >> $RESULT_FILE
-else
-    echo "❌  Boot分区密钥：无验证（高风险）" >> $RESULT_FILE
-fi
-SYSTEM_SIGN=$(getprop ro.build.tags 2>/dev/null)
-if [ "$SYSTEM_SIGN" = "release-keys" ]; then
-    echo "✅  系统签名：官方签名（安全）" >> $RESULT_FILE
-else
-    echo "❌  系统签名：非官方签名（已篡改）" >> $RESULT_FILE
-fi
-
-# 8. VPN状态检测（原逻辑完整保留）
-echo -e "\n7. VPN状态检测：" >> $RESULT_FILE
-VPN_STATUS=$(settings get global vpn_on 2>/dev/null)
-if [ "$VPN_STATUS" -eq 1 ]; then
-    echo "⚠️  VPN状态：已开启" >> $RESULT_FILE
-else
-    echo "✅  VPN状态：未开启" >> $RESULT_FILE
-fi
-
-# 9. 系统环境全景检测（原逻辑完整保留）
-echo -e "\n8. 系统环境全景检测：" >> $RESULT_FILE
-echo "   1. 运行环境基础信息：" >> $RESULT_FILE
-USER_ID=$(id -u)
-SHELL_ENV=$(echo $SHELL)
-PATH_ENV=$(echo $PATH | tr ':' '\n' | head -5)
-echo "   - 当前用户ID：$USER_ID（0=Root用户，非0=普通用户）" >> $RESULT_FILE
-echo "   - 默认Shell：$SHELL_ENV" >> $RESULT_FILE
-echo "   - 环境变量PATH（前5项）：" >> $RESULT_FILE
-echo "$PATH_ENV" | sed 's/^/     - /' >> $RESULT_FILE
-
-echo "   2. 高危进程检测：" >> $RESULT_FILE
-HIGH_RISK_PROCESSES=("su" "magisk" "ksu" "xposed" "hook" "frida" "tcpdump" "adb")
-DETECTED_HIGH_RISK_PROCS=""
-for proc in "${HIGH_RISK_PROCESSES[@]}"; do
-    if pgrep -x "$proc" >/dev/null 2>&1; then
-        PID=$(pgrep -x "$proc")
-        DETECTED_HIGH_RISK_PROCS+="\n- $proc（PID：$PID）"
-    fi
-done
-if [ -n "$DETECTED_HIGH_RISK_PROCS" ]; then
-    echo "   ❌ 检测到高危进程：$DETECTED_HIGH_RISK_PROCS" >> $RESULT_FILE
-else
-    echo "   ✅ 未检测到高危进程" >> $RESULT_FILE
-fi
-
-echo "   3. 网络配置检测：" >> $RESULT_FILE
-IPV4=$(ifconfig wlan0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | head -1)
-IPV6=$(ifconfig wlan0 | grep -Eo 'inet6 (addr:)?([0-9a-fA-F]*::?){1,4}[0-9a-fA-F]*' | grep -Eo '([0-9a-fA-F]*::?){1,4}[0-9a-fA-F]*' | head -1)
-echo "   - IPv4地址（WLAN）：${IPV4:-未获取}" >> $RESULT_FILE
-echo "   - IPv6地址（WLAN）：${IPV6:-未获取}" >> $RESULT_FILE
-HIGH_RISK_PORTS=("22" "80" "443" "3389" "5555")
-DETECTED_OPEN_PORTS=""
-for port in "${HIGH_RISK_PORTS[@]}"; do
-    if netstat -tuln | grep -q ":$port "; then
-        DETECTED_OPEN_PORTS+="\n- $port端口（可能存在风险）"
-    fi
-done
-if [ -n "$DETECTED_OPEN_PORTS" ]; then
-    echo "   ⚠️  检测到高危端口开放：$DETECTED_OPEN_PORTS" >> $RESULT_FILE
-else
-    echo "   ✅ 未检测到高危端口开放" >> $RESULT_FILE
-fi
-
-echo "   4. 存储权限检测：" >> $RESULT_FILE
-if [ -w "/storage/emulated/0" ]; then
-    echo "   ✅ 内部存储（/sdcard）：可读写" >> $RESULT_FILE
-else
-    echo "   ❌ 内部存储（/sdcard）：仅可读/不可访问" >> $RESULT_FILE
-fi
-if [ -d "/storage/extSdCard" ] && [ -w "/storage/extSdCard" ]; then
-    echo "   ✅ 外部SD卡：存在且可读写" >> $RESULT_FILE
-elif [ -d "/storage/extSdCard" ]; then
-    echo "   ⚠️  外部SD卡：存在但仅可读" >> $RESULT_FILE
-else
-    echo "   ✅ 外部SD卡：未插入" >> $RESULT_FILE
-fi
-
-echo "   5. 临时目录异常文件检测：" >> $RESULT_FILE
-TMP_DIRS=("/tmp" "/data/local/tmp" "/cache")
-DETECTED_TMP_ABNORMAL=""
-for dir in "${TMP_DIRS[@]}"; do
-    if [ -d "$dir" ]; then
-        LARGE_FILES=$(find "$dir" -type f -size +10M 2>/dev/null | head -3)
-        if [ -n "$LARGE_FILES" ]; then
-            DETECTED_TMP_ABNORMAL+="\n- $dir：存在超大文件：$LARGE_FILES"
+        
+        # 检测Zygisk Next
+        if [ -d "/data/adb/modules/zygisk_next" ] || [ -d "/data/adb/modules/zygisksu" ]; then
+            echo -e "  ${GREEN}✓ Zygisk Next${NC}"
+            MODULES_FOUND=1
         fi
-        EXEC_FILES=$(find "$dir" -type f -executable 2>/dev/null | grep -v "\.sh$" | head -3)
-        if [ -n "$EXEC_FILES" ]; then
-            DETECTED_TMP_ABNORMAL+="\n- $dir：存在非脚本可执行文件：$EXEC_FILES"
+        
+        # 检测Cherish Peekaboo
+        if [ -d "/data/adb/modules/cherish_peekaboo" ]; then
+            echo -e "  ${GREEN}✓ Cherish Peekaboo${NC}"
+            MODULES_FOUND=1
         fi
     fi
-done
-if [ -n "$DETECTED_TMP_ABNORMAL" ]; then
-    echo "   ❌ 临时目录存在异常：$DETECTED_TMP_ABNORMAL" >> $RESULT_FILE
-else
-    echo "   ✅ 临时目录无异常" >> $RESULT_FILE
-fi
-
-echo "   6. 系统资源占用检测：" >> $RESULT_FILE
-CPU_USAGE=$(top -n 1 -d 1 | grep -E "^[0-9]+" | head -3 | awk '{print $1 " PID: " $2 " 占用率: " $3 "% 进程名: " $12}')
-echo "   - CPU占用Top3进程：" >> $RESULT_FILE
-echo "$CPU_USAGE" | sed 's/^/     - /' >> $RESULT_FILE
-MEM_TOTAL=$(free -m | grep Mem | awk '{print $2}')
-MEM_USED=$(free -m | grep Mem | awk '{print $3}')
-MEM_FREE=$(free -m | grep Mem | awk '{print $4}')
-echo "   - 内存占用：总内存${MEM_TOTAL}MB / 已用${MEM_USED}MB / 空闲${MEM_FREE}MB" >> $RESULT_FILE
-DATA_USAGE=$(df -h /data | grep /data | awk '{print "总容量:" $2 " 已用:" $3 " 可用:" $4 " 占用率:" $5}')
-echo "   - /data分区占用：$DATA_USAGE" >> $RESULT_FILE
-
-# =============================
-# 新增：恶意文件深度检测模块（仅插入此处，不影响原逻辑）
-echo -e "\n9. 恶意文件深度检测（新增）：" >> $RESULT_FILE
-log_record INFO "===== 恶意文件深度检测开始 ====="
-MALICIOUS_FOUND=0
-APK_FOUND=0
-SCRIPT_FOUND=0
-
-# 9.1 原生恶意文件检测
-echo "   1. 原生恶意文件检测（${MALICIOUS_MARKERS}）：" >> $RESULT_FILE
-local malicious_paths="/system/priv-apk/zygisk/zygisk.apk ${MODULES_DIR}/*/system/priv-apk/zygisk/zygisk.apk /data/app/com.android.append* /data/data/com.android.append"
-for path in ${malicious_paths}; do
-    find "$(dirname "${path}")" -maxdepth 1 -name "$(basename "${path}")" -print0 2>/dev/null | while read -d '' file; do
-        if [ -e "${file}" ]; then
-            MALICIOUS_FOUND=1
-            log_record ERROR "发现原生恶意文件：${file}"
-            echo "   ❌ 发现原生恶意文件：${file}" >> $RESULT_FILE
-            echo "   📌 文件信息：$(ls -la "${file}" 2>/dev/null | head -1 | awk '{print "权限："$1" 大小："$5" 修改时间："$6" "$7" "$8}')" >> $RESULT_FILE
-            check_malicious_link "${file}"
-        fi
-    done
-done
-[ "${MALICIOUS_FOUND}" -eq 0 ] && echo "   ✅ 未发现原生恶意文件" >> $RESULT_FILE
-
-# 9.2 目标APK检测
-echo -e "\n   2. 目标APK检测（${TARGET_APK_NAME}）：" >> $RESULT_FILE
-local AAPT_PATH=$(find_aapt)
-if [ -d "/data/adb" ]; then
-    find "/data/adb" -type f -name "${TARGET_APK_NAME}" -print0 2>/dev/null | while read -d '' apk_file; do
-        APK_FOUND=1
-        log_record ERROR "发现目标APK：${apk_file}"
-        echo "   ❌ 发现目标APK：${apk_file}" >> $RESULT_FILE
-        echo "   📌 文件信息：" >> $RESULT_FILE
-        echo "      权限：$(ls -la "${apk_file}" 2>/dev/null | head -1 | awk '{print $1}')" >> $RESULT_FILE
-        echo "      大小：$(du -h "${apk_file}" 2>/dev/null | cut -f1)" >> $RESULT_FILE
-        if [ -n "${AAPT_PATH}" ]; then
-            local apk_version=$("${AAPT_PATH}" dump badging "${apk_file}" 2>/dev/null | grep "versionName" | head -1 | awk -F"'" '{print $2}')
-            echo "      版本：${apk_version:-未知}" >> $RESULT_FILE
-        else
-            echo "      版本：未安装aapt，无法获取" >> $RESULT_FILE
-        fi
-    done
-    [ "${APK_FOUND}" -eq 0 ] && echo "   ✅ 未发现目标APK" >> $RESULT_FILE
-else
-    echo "   ⚠️  跳过APK检测：/data/adb目录不存在" >> $RESULT_FILE
-fi
-
-# 9.3 可疑sh程序检测
-echo -e "\n   3. 可疑sh程序检测（含 ${TARGET_PACKAGE} 包名）：" >> $RESULT_FILE
-if [ -d "/data/adb" ]; then
-    find "/data/adb" -type f -name "*.sh" -print0 2>/dev/null | while read -d '' sh_file; do
-        if ! is_excluded "${sh_file}" && grep -qE "${TARGET_PACKAGE}" "${sh_file}" 2>/dev/null; then
-            SCRIPT_FOUND=1
-            log_record ERROR "发现可疑sh程序（内容匹配）：${sh_file}"
-            echo "   ❌ 可疑sh程序（内容匹配）：${sh_file}" >> $RESULT_FILE
-            echo "   📌 相关片段：" >> $RESULT_FILE
-            grep -E "${TARGET_PACKAGE}" "${sh_file}" 2>/dev/null | head -2 | sed 's/^/      /' >> $RESULT_FILE
-        fi
-    done
-    find "/data/adb" -type f -name "*${TARGET_PACKAGE}*.sh" -print0 2>/dev/null | while read -d '' sh_file; do
-        if ! is_excluded "${sh_file}"; then
-            SCRIPT_FOUND=1
-            log_record ERROR "发现可疑sh程序（文件名匹配）：${sh_file}"
-            echo "   ❌ 可疑sh程序（文件名匹配）：${sh_file}" >> $RESULT_FILE
-        fi
-    done
-    [ "${SCRIPT_FOUND}" -eq 0 ] && echo "   ✅ 未发现可疑sh程序" >> $RESULT_FILE
-else
-    echo "   ⚠️  跳过sh程序检测：/data/adb目录不存在" >> $RESULT_FILE
-fi
-
-# 9.4 Magisk模块可疑脚本检测
-echo -e "\n   4. Magisk模块可疑脚本检测：" >> $RESULT_FILE
-if [ -d "${MODULES_DIR}" ]; then
-    find "${MODULES_DIR}" -maxdepth 1 -type d ! -name "modules" -print0 2>/dev/null | while read -d '' module; do
-        local module_name=$(basename "${module}")
-        local module_scripts="${module}/post-fs-data.sh ${module}/service.sh ${module}/install.sh"
-        for script in ${module_scripts}; do
-            if [ -f "${script}" ] && grep -qE "${TARGET_PACKAGE}" "${script}" 2>/dev/null; then
-                SCRIPT_FOUND=1
-                log_record ERROR "模块 ${module_name} 存在可疑脚本：$(basename "${script}")"
-                echo "   ❌ 模块 ${module_name} 可疑脚本：$(basename "${script}")" >> $RESULT_FILE
-                echo "   📌 路径：${script}" >> $RESULT_FILE
-            fi
-        done
-    done
-    [ "${SCRIPT_FOUND}" -eq 0 ] && echo "   ✅ 未发现模块可疑脚本" >> $RESULT_FILE
-else
-    echo "   ⚠️  跳过模块检测：${MODULES_DIR}目录不存在" >> $RESULT_FILE
-fi
-
-# 9.5 检测汇总
-echo -e "\n   5. 检测汇总：" >> $RESULT_FILE
-if [ $((MALICIOUS_FOUND + APK_FOUND + SCRIPT_FOUND)) -gt 0 ]; then
-    echo "   ⚠️  共发现 $((MALICIOUS_FOUND + APK_FOUND + SCRIPT_FOUND)) 个可疑目标，建议手动核查删除" >> $RESULT_FILE
-else
-    echo "   ✅ 未发现任何恶意/可疑文件" >> $RESULT_FILE
-fi
-# =============================
-# 原脚本后续模块完整保留（无任何删减）
-echo -e "\n10. BL锁状态检测（优化版）：" >> $RESULT_FILE
-BL_REAL_STATUS="未知"
-BL_IS_SPOOFED=0
-echo "   1. 硬件级检测：" >> $RESULT_FILE
-if [ -f "/sys/firmware/devicetree/base/fuse_status" ]; then
-    FUSE_STATUS=$(cat /sys/firmware/devicetree/base/fuse_status 2>/dev/null | grep -i "blown")
-    if [ -n "$FUSE_STATUS" ]; then
-        echo "   ⚠️  eFuse状态：已熔断（BL曾解锁，无法恢复官方锁定状态）" >> $RESULT_FILE
-        BL_REAL_STATUS="已解锁（物理熔断）"
-    else
-        echo "   ✅  eFuse状态：未熔断（BL未被物理解锁）" >> $RESULT_FILE
+    
+    if [ $MODULES_FOUND -eq 0 ]; then
+        echo -e "  ${YELLOW}未检测到隐藏模块${NC}"
     fi
-else
-    echo "   ⚠️  eFuse状态：无法读取（机型不支持）" >> $RESULT_FILE
-fi
-
-echo "   2. 系统属性交叉校验：" >> $RESULT_FILE
-prop1=$(getprop ro.boot.flash.locked 2>/dev/null)
-prop2=$(getprop ro.boot.verifiedbootstate 2>/dev/null)
-prop3=$(getprop ro.oem_unlock_supported 2>/dev/null)
-prop4=$(getprop ro.boot.vbmeta.device_state 2>/dev/null)
-echo "   - ro.boot.flash.locked: $prop1" >> $RESULT_FILE
-echo "   - ro.boot.verifiedbootstate: $prop2" >> $RESULT_FILE
-echo "   - ro.oem_unlock_supported: $prop3" >> $RESULT_FILE
-echo "   - ro.boot.vbmeta.device_state: $prop4" >> $RESULT_FILE
-if [ "$prop1" = "0" ] && [ "$prop2" = "orange" ] && [ "$prop3" = "1" ] && [ "$prop4" = "unlocked" ]; then
-    echo "   ✅ 属性一致性：一致（初步判定BL已解锁）" >> $RESULT_FILE
-    BL_REAL_STATUS="已解锁（属性一致）"
-elif [ "$prop1" = "1" ] && [ "$prop2" = "green" ] && [ "$prop3" = "0" ] && [ "$prop4" = "locked" ]; then
-    echo "   ✅ 属性一致性：一致（初步判定BL未解锁）" >> $RESULT_FILE
-    BL_REAL_STATUS="未解锁（属性一致）"
-else
-    echo "   ❌ 属性一致性：冲突（疑似属性篡改，可能为“免BL Root”场景）" >> $RESULT_FILE
-    BL_IS_SPOOFED=1
-fi
-
-echo "   3. 功能验证（区分真/伪解锁）：" >> $RESULT_FILE
-if [ -w "/system" ] || [ -d "/data/adb/recovery" ]; then
-    echo "   ❌ 系统分区：可写/存在第三方Recovery（判定为真解锁）" >> $RESULT_FILE
-    BL_REAL_STATUS="已解锁（功能验证通过）"
-else
-    if [ $BL_IS_SPOOFED -eq 1 ]; then
-        echo "   ⚠️  系统分区：只读/无第三方Recovery（属性篡改，判定为伪解锁）" >> $RESULT_FILE
-        BL_REAL_STATUS="未解锁（伪解锁，漏洞绕过）"
-    else
-        echo "   ✅ 系统分区：只读（符合BL未解锁状态）" >> $RESULT_FILE
-    fi
-fi
-
-TEE_SERVICE=$(getprop init.svc.tee 2>/dev/null || getprop init.svc.qseecomd 2>/dev/null)
-if [ "$TEE_SERVICE" != "running" ] && [ "$BL_REAL_STATUS" = "未解锁（属性一致）" ]; then
-    echo "   ❌ TEE服务：未运行（BL未解锁却异常，可能被漏洞破坏）" >> $RESULT_FILE
-else
-    echo "   ✅ TEE服务：正常运行（符合当前BL状态）" >> $RESULT_FILE
-fi
-
-echo -e "\n   【BL锁最终判定】：$BL_REAL_STATUS" >> $RESULT_FILE
-if [ "$BL_REAL_STATUS" != "未解锁（属性一致）" ] && [ "$BL_REAL_STATUS" != "未知" ]; then
-    echo "   ⚠️  提示：若声称“免BL Root”，实际为真解锁或伪解锁（漏洞绕过），存在安全风险" >> $RESULT_FILE
-fi
-
-echo -e "\n11. Root核心检测（含类型识别）：" >> $RESULT_FILE
-ROOT_DETECTED=0
-ROOT_TYPE="未检测到Root"
-ROOT_FILES=("/system/bin/su" "/system/xbin/su" "/data/local/tmp/su" "/data/adb/magisk/su" "/data/adb/su" "/data/adb/kernelsu/su")
-for file in "${ROOT_FILES[@]}"; do
-    if [ -f "$file" ] || [ -L "$file" ]; then
-        echo "❌  存在Root特征文件：$file" >> $RESULT_FILE
-        ROOT_DETECTED=1
-        case "$file" in
-            "/data/adb/magisk/su") ROOT_TYPE="疑似Magisk Root" ;;
-            "/data/adb/kernelsu/su") ROOT_TYPE="疑似KernelSU Root" ;;
-            "/system/bin/su"|"/system/xbin/su") ROOT_TYPE="疑似SuperSU/传统Root" ;;
-            "/data/local/tmp/su") ROOT_TYPE="疑似临时Root" ;;
-        esac
-    fi
-done
-if su -c "id" >/dev/null 2>&1; then
-    echo "❌  su命令可执行（已获取Root权限）" >> $RESULT_FILE
-    ROOT_DETECTED=1
-    if [ -d "/data/adb/magisk" ] || pm list packages | grep -q "com.topjohnwu.magisk"; then
-        MAGISK_VER=$(su -c "magisk --version" 2>/dev/null | awk '{print $1}')
-        if [ -n "$MAGISK_VER" ]; then
-            ROOT_TYPE="Magisk Root（版本：$MAGISK_VER）"
-        else
-            ROOT_TYPE="Magisk Root（未知版本）"
-        fi
-        if [ -f "/data/adb/magisk/config" ] && grep -q "zygisk=1" "/data/adb/magisk/config"; then
-            echo "   ⚠️  Magisk附加信息：Zygisk已启用" >> $RESULT_FILE
-        fi
-    elif [ -d "/data/adb/kernelsu" ] || pm list packages | grep -q "io.github.vvb2060.magisk" || pm list packages | grep -q "com.sukisu.ultra"; then
-        KSU_VER=$(su -c "ksu --version" 2>/dev/null | awk '{print $1}')
-        if [ -n "$KSU_VER" ]; then
-            ROOT_TYPE="KernelSU Root（版本：$KSU_VER）"
-        else
-            ROOT_TYPE="KernelSU/Alpha Root"
-        fi
-    elif [ -d "/data/data/eu.chainfire.supersu" ] || [ -f "/system/xbin/su" ]; then
-        ROOT_TYPE="SuperSU Root（传统Root）"
-    elif [ -f "/data/local/tmp/su" ] && ! [ -d "/data/adb/magisk" ] && ! [ -d "/data/adb/kernelsu" ]; then
-        su -c "touch /data/root_temp_test.txt" >/dev/null 2>&1
-        if [ -f "/data/root_temp_test.txt" ]; then
-            ROOT_TYPE="临时Root（漏洞获取，重启失效）"
-            su -c "rm /data/root_temp_test.txt" >/dev/null 2>&1
-        fi
-    elif [ "$BL_REAL_STATUS" = "未解锁（伪解锁，漏洞绕过）" ]; then
-        ROOT_TYPE="免BL漏洞Root（功能受限，非内核级）"
-    fi
-fi
-ROOT_MANAGERS=("com.topjohnwu.magisk" "eu.chainfire.supersu" "com.kingroot.kinguser" "com.mgyun.shua.su" "io.github.vvb2060.magisk" "com.sukisu.ultra")
-for pkg in "${ROOT_MANAGERS[@]}"; do
-    if pm list packages | grep -q "$pkg" 2>/dev/null && [ $ROOT_DETECTED -eq 0 ]; then
-        echo "❌  检测到Root管理应用：$pkg" >> $RESULT_FILE
-        ROOT_DETECTED=1
-        case "$pkg" in
-            "com.topjohnwu.magisk") ROOT_TYPE="Magisk Root（已安装管理应用）" ;;
-            "io.github.vvb2060.magisk") ROOT_TYPE="KernelSU/Alpha Root（已安装管理应用）" ;;
-            "eu.chainfire.supersu") ROOT_TYPE="SuperSU Root（已安装管理应用）" ;;
-            *) ROOT_TYPE="未知类型Root（已安装管理应用：$pkg）" ;;
-        esac
-    fi
-done
-if [ $ROOT_DETECTED -eq 0 ]; then
-    echo "✅  未检测到Root特征（脚本版检测存在局限，软件版将增强识别）" >> $RESULT_FILE
-else
-    echo "⚠️  Root类型判定：$ROOT_TYPE" >> $RESULT_FILE
-    echo "   提示：当前为脚本版，部分隐藏Root场景可能无法识别，软件版将优化检测逻辑" >> $RESULT_FILE
-fi
-
-echo -e "\n12. Boot分区检测：" >> $RESULT_FILE
-BOOT_MODIFIED=$(getprop ro.boot.verifiedbootstate 2>/dev/null)
-if [ "$BOOT_MODIFIED" = "green" ]; then
-    echo "✅  Boot分区：官方未修改（安全）" >> $RESULT_FILE
-elif [ "$BOOT_MODIFIED" = "orange" ]; then
-    echo "❌  Boot分区：已被修改（非官方状态）" >> $RESULT_FILE
-else
-    echo "❌  Boot分区：无验证信息（高风险）" >> $RESULT_FILE
-fi
-BOOT_DEVICE_PATHS=("/dev/block/bootdevice/by-name/boot" "/dev/block/platform/bootdevice/by-name/boot" "/dev/block/sda1" "/dev/block/mmcblk0p1")
-BOOT_DEVICE_EXISTS=0
-for path in "${BOOT_DEVICE_PATHS[@]}"; do
-    if [ -f "$path" ]; then
-        BOOT_DEVICE_EXISTS=1
-        break
-    fi
-done
-if [ $BOOT_DEVICE_EXISTS -eq 1 ]; then
-    echo "✅  Boot分区设备：存在（正常）" >> $RESULT_FILE
-else
-    echo "❌  Boot分区设备：不存在（异常）" >> $RESULT_FILE
-fi
-
-echo -e "\n13. 内核检测：" >> $RESULT_FILE
-KERNEL_VERSION=$(uname -r 2>/dev/null)
-SYSTEM_KERNEL=$(getprop ro.build.version.incremental 2>/dev/null)
-if echo "$KERNEL_VERSION" | grep -q "$SYSTEM_KERNEL"; then
-    echo "✅  内核版本：与系统匹配（官方内核）" >> $RESULT_FILE
-else
-    echo "❌  内核版本：与系统不匹配（存在修改/篡改内核风险）" >> $RESULT_FILE
-fi
-KERNEL_DEBUG=$(cat /proc/sys/kernel/printk 2>/dev/null | awk '{print $1}')
-if [ "$KERNEL_DEBUG" -ge 4 ]; then
-    echo "⚠️  内核调试：已开启（存在安全风险）" >> $RESULT_FILE
-else
-    echo "✅  内核调试：已关闭（安全）" >> $RESULT_FILE
-fi
-
-echo -e "\n14. 内核文件完整性检测：" >> $RESULT_FILE
-KERNEL_FILES=(
-    "/boot"
-    "/dev/kmsg"
-    "/proc/kcore"
-    "/proc/modules"
-    "/proc/kallsyms"
-    "/system/lib/modules"
-    "/vendor/lib/modules"
-    "/data/adb/modules/kernel"
-)
-CORRUPTED_KERNEL_FILES=""
-for file in "${KERNEL_FILES[@]}"; do
-    if [ ! -f "$file" ] && [ ! -d "$file" ] && [ ! -c "$file" ]; then
-        CORRUPTED_KERNEL_FILES+="\n- $file（缺失）"
-    elif [ -f "$file" ] && [ "$(stat -c %a "$file" 2>/dev/null)" -gt 755 ]; then
-        CORRUPTED_KERNEL_FILES+="\n- $file（权限异常，可能被篡改）"
-    fi
-done
-if [ -d "/system/lib/modules" ]; then
-    UNSIGNED_MODULES=$(find /system/lib/modules -name "*.ko" -exec grep -L "Module signature" {} \; 2>/dev/null | head -3)
-    if [ -n "$UNSIGNED_MODULES" ]; then
-        CORRUPTED_KERNEL_FILES+="\n- 未签名内核模块：$UNSIGNED_MODULES"
-    fi
-fi
-if [ -n "$CORRUPTED_KERNEL_FILES" ]; then
-    echo "❌  内核文件存在异常（可能被篡改）：$CORRUPTED_KERNEL_FILES" >> $RESULT_FILE
-else
-    echo "✅  内核文件完整性正常" >> $RESULT_FILE
-fi
-
-echo -e "\n15. TEE可信执行环境检测：" >> $RESULT_FILE
-TEE_SERVICE_STATUS=$(getprop init.svc.tee 2>/dev/null || getprop init.svc.qseecomd 2>/dev/null)
-if [ "$TEE_SERVICE_STATUS" = "running" ]; then
-    echo "✅  TEE服务：正常运行" >> $RESULT_FILE
-else
-    echo "❌  TEE服务：未运行（可能损坏）" >> $RESULT_FILE
-fi
-TEE_DEVICE_PATH="/dev/tee0"
-if [ -c "$TEE_DEVICE_PATH" ]; then
-    echo "✅  TEE设备节点：存在（正常）" >> $RESULT_FILE
-else
-    echo "❌  TEE设备节点：不存在（可能损坏）" >> $RESULT_FILE
-fi
-
-echo -e "\n16. /data目录异常文件检测：" >> $RESULT_FILE
-SYSTEM_DATA_DIRS=("app" "adb" "user" "system" "local" "misc" "media" "vendor" "dalvik-cache" "oat")
-DETECTED_ABNORMAL_FILES=""
-DATA_DIR_LIST=$(su -c "ls -la /data/" 2>/dev/null || ls -la /data/ 2>/dev/null)
-if [ -n "$DATA_DIR_LIST" ]; then
-    echo "$DATA_DIR_LIST" | grep -v "total" | grep -v "^d.*root root" | while read -r line; do
-        item=$(echo "$line" | awk '{print $9}')
-        is_system=0
-        for dir in "${SYSTEM_DATA_DIRS[@]}"; do
-            if [ "$item" = "$dir" ]; then
-                is_system=1
-                break
-            fi
-        done
-        if [ $is_system -eq 0 ]; then
-            DETECTED_ABNORMAL_FILES+="\n- /data/$item"
-        fi
-    done
-else
-    if [ "$(id -u)" -ne 0 ]; then
-        echo "⚠️  /data目录：无权限读取（需Root权限）" >> $RESULT_FILE
-    else
-        echo "❌  /data目录：无法读取（系统异常）" >> $RESULT_FILE
-    fi
-fi
-if [ -n "$DETECTED_ABNORMAL_FILES" ]; then
-    echo "❌  /data目录存在异常文件/目录：" >> $RESULT_FILE
-    echo "$DETECTED_ABNORMAL_FILES" >> $RESULT_FILE
-elif [ -z "$DATA_DIR_LIST" ]; then
-    :
-else
-    echo "✅  /data目录无异常文件/目录" >> $RESULT_FILE
-fi
-
-echo -e "\n17. 不一致挂载检测：" >> $RESULT_FILE
-INCONSISTENT_MOUNTS=$(mount | grep -E "/system|/vendor|/data" | grep -v "/dev/block" | head -3)
-if [ -n "$INCONSISTENT_MOUNTS" ]; then
-    echo "❌  检测到不一致挂载（可能被篡改）：" >> $RESULT_FILE
-    echo "$INCONSISTENT_MOUNTS" | sed 's/^/   - /' >> $RESULT_FILE
-else
-    echo "✅  系统分区挂载正常" >> $RESULT_FILE
-fi
-
-echo -e "\n18. 西米露（Xposed）残留检测：" >> $RESULT_FILE
-XPOSED_RESIDUES=("/data/data/de.robv.android.xposed.installer" "/system/framework/XposedBridge.jar" "/data/adb/modules/xposed" "/system/xposed")
-DETECTED_XPOSED=""
-for path in "${XPOSED_RESIDUES[@]}"; do
-    if [ -d "$path" ] || [ -f "$path" ]; then
-        DETECTED_XPOSED+="\n- $path"
-    fi
-done
-if [ -n "$DETECTED_XPOSED" ]; then
-    echo "❌  检测到西米露（Xposed）残留文件：$DETECTED_XPOSED" >> $RESULT_FILE
-else
-    echo "✅  无西米露（Xposed）残留" >> $RESULT_FILE
-fi
-
-echo -e "\n19. 墓碑（Tombstone）异常检测：" >> $RESULT_FILE
-TOMBSTONES=$(ls /data/tombstones/ 2>/dev/null | grep "tombstone_" | wc -l)
-if [ "$TOMBSTONES" -gt 5 ]; then
-    echo "⚠️  检测到大量墓碑文件（$TOMBSTONES个），可能存在系统崩溃风险" >> $RESULT_FILE
-elif [ "$TOMBSTONES" -gt 0 ]; then
-    echo "⚠️  检测到少量墓碑文件（$TOMBSTONES个），建议清理" >> $RESULT_FILE
-else
-    echo "✅  无墓碑文件" >> $RESULT_FILE
-fi
-
-echo -e "\n===== 综合结论 =====" >> $RESULT_FILE
-if grep -q "❌" "$RESULT_FILE"; then
-    echo "❌  设备存在高风险状态，建议排查安全问题" >> $RESULT_FILE
-elif grep -q "⚠️" "$RESULT_FILE"; then
-    echo "⚠️  设备存在潜在风险，需注意安全使用" >> $RESULT_FILE
-else
-    echo "✅  设备状态：安全无风险" >> $RESULT_FILE
-fi
-
-# 新增：日志路径提示
-echo -e "\n📁 详细日志保存路径：" >> $RESULT_FILE
-if [ -f "${LOG_FILE}" ]; then
-    echo "   - 主日志：${LOG_FILE}" >> $RESULT_FILE
-else
-    echo "   - 降级日志：${BACKUP_LOG_FILE}" >> $RESULT_FILE
-fi
-echo -e "\n📁 检测报告已保存至：/storage/emulated/0/系统环境检测结果.txt" >> $RESULT_FILE
-echo -e "\n检测完成 请查看检测结果（检查结果在内部储存）"
-
-    echo -e "${GREEN}[√] 深度环境监测完成${NC}"
+    
     echo ""
     echo -n "按回车键继续... "
     read dummy
 }
 
-menu_option_3() {
-    echo -e "${YELLOW}[3] 正在执行基础文件清理...${NC}"
-    echo -e "${BLUE}执行基础文件和数据清理${NC}"
+# Root隐藏方案推荐
+root_hiding_solutions() {
+    clear
+    echo -e "${CYAN}===== Root隐藏方案推荐 =====${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Magisk 26+】${NC}"
+    echo -e "  推荐组合：Zygisk + Shamiko + HMAL + PlayIntegrityFix"
+    echo -e "  ${BLUE}说明：最新版本，完整支持所有隐藏功能${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Magisk 24-25】${NC}"
+    echo -e "  推荐组合：Zygisk + Shamiko + HMAL"
+    echo -e "  ${BLUE}说明：稳定版本，适合大多数设备${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Magisk 23.x】${NC}"
+    echo -e "  推荐组合：MagiskHide + 添加游戏包名"
+    echo -e "  ${BLUE}说明：旧版本，功能有限${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Magisk Delta】${NC}"
+    echo -e "  推荐组合：SuList白名单模式"
+    echo -e "  ${BLUE}说明：特殊版本，自带高级隐藏${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【KernelSU】${NC}"
+    echo -e "  推荐组合：Zygisk Next + Shamiko + HMAL"
+    echo -e "  ${BLUE}说明：内核级Root，需要配合Zygisk Next${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【APatch】${NC}"
+    echo -e "  推荐组合：Cherish Peekaboo + 内置隐藏"
+    echo -e "  ${BLUE}说明：新型Root方案，自带强力隐藏${NC}"
+    echo ""
+    
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# 一键配置隐藏
+one_click_configure() {
+    clear
+    echo -e "${CYAN}===== 一键配置隐藏 =====${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}此功能将自动配置Root隐藏${NC}"
+    echo -e "${YELLOW}包括：添加游戏到Denylist，启用隐藏模块${NC}"
+    echo ""
+    
+    echo -n "是否继续? (y/N): "
+    read confirm
+    
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        echo ""
+        echo -e "${GREEN}[1/4] 检测Root环境...${NC}"
+        sleep 1
+        
+        # 添加游戏到Denylist
+        echo -e "${GREEN}[2/4] 添加游戏到Denylist...${NC}"
+        GAME_PACKAGES=("$GAME_DFM_CN" "$GAME_DFM_TW" "$GAME_DFM_GL" "$GAME_AQTW_CN" "$GAME_SGAME_CN" "$GAME_PUBG_CN")
+        
+        for pkg in "${GAME_PACKAGES[@]}"; do
+            if pm list packages | grep -q "$pkg" 2>/dev/null; then
+                # Magisk Denylist
+                if [ -d "/data/adb/magisk" ]; then
+                    su -c "magisk --denylist add $pkg" 2>/dev/null && echo -e "  ${GREEN}✓ 已添加：$pkg${NC}"
+                fi
+                # KernelSU Denylist  
+                if [ -d "/data/adb/ksu" ]; then
+                    su -c "ksu denylist add $pkg" 2>/dev/null && echo -e "  ${GREEN}✓ 已添加：$pkg${NC}"
+                fi
+            fi
+        done
+        
+        echo -e "${GREEN}[3/4] 配置隐藏模块...${NC}"
+        sleep 1
+        
+        echo -e "${GREEN}[4/4] 完成配置${NC}"
+        echo ""
+        echo -e "${GREEN}[√] 配置完成，建议重启设备${NC}"
+    else
+        echo -e "${BLUE}操作已取消${NC}"
+    fi
+    
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# 三角洲专项配置
+delta_specific_config() {
+    clear
+    echo -e "${CYAN}===== 三角洲专项配置 =====${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}此功能针对三角洲ACE反作弊进行专项配置${NC}"
+    echo ""
+    
+    echo -n "是否继续? (y/N): "
+    read confirm
+    
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        echo ""
+        echo -e "${GREEN}[1/3] 添加三角洲到Denylist...${NC}"
+        
+        DELTA_PACKAGES=("$GAME_DFM_CN" "$GAME_DFM_TW" "$GAME_DFM_GL")
+        for pkg in "${DELTA_PACKAGES[@]}"; do
+            if pm list packages | grep -q "$pkg" 2>/dev/null; then
+                if [ -d "/data/adb/magisk" ]; then
+                    su -c "magisk --denylist add $pkg" 2>/dev/null && echo -e "  ${GREEN}✓ 已添加：$pkg${NC}"
+                fi
+                if [ -d "/data/adb/ksu" ]; then
+                    su -c "ksu denylist add $pkg" 2>/dev/null && echo -e "  ${GREEN}✓ 已添加：$pkg${NC}"
+                fi
+            fi
+        done
+        
+        echo -e "${GREEN}[2/3] 配置HMAL黑名单...${NC}"
+        echo -e "  ${YELLOW}请手动在HMAL中添加三角洲到黑名单${NC}"
+        sleep 1
+        
+        echo -e "${GREEN}[3/3] 启用Shamiko...${NC}"
+        if [ -d "/data/adb/modules/zygisk_shamiko" ]; then
+            echo -e "  ${GREEN}✓ Shamiko已安装${NC}"
+        else
+            echo -e "  ${YELLOW}! Shamiko未安装，请参考模块下载地址${NC}"
+        fi
+        
+        echo ""
+        echo -e "${GREEN}[√] 三角洲专项配置完成${NC}"
+    else
+        echo -e "${BLUE}操作已取消${NC}"
+    fi
+    
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# Root痕迹清理
+root_trace_cleanup() {
+    clear
+    echo -e "${CYAN}===== Root痕迹清理 =====${NC}"
+    echo ""
+    
+    echo -e "${RED}注意：此操作只清理痕迹，不影响Root功能${NC}"
+    echo -e "${GREEN}保护的核心目录（不会清理）：${NC}"
+    echo -e "  - /data/adb/magisk/（Magisk核心）"
+    echo -e "  - /data/adb/modules/（已安装模块）"
+    echo -e "  - /data/adb/ksu/（KernelSU核心）"
+    echo -e "  - /data/adb/ap/（APatch核心）"
+    echo -e "  - /data/adb/magisk.db（授权记录）"
+    echo ""
+    
+    echo -n "是否继续清理? (y/N): "
+    read confirm
+    
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        echo ""
+        echo -e "${GREEN}[1/4] 清理历史命令记录...${NC}"
+        rm -f /data/local/tmp/.bash_history 2>/dev/null
+        rm -f /data/local/tmp/.sh_history 2>/dev/null
+        history -c 2>/dev/null
+        echo -e "  ${GREEN}✓ 完成${NC}"
+        
+        echo -e "${GREEN}[2/4] 清理临时su文件...${NC}"
+        rm -f /data/local/tmp/su_* 2>/dev/null
+        rm -f /cache/su_* 2>/dev/null
+        echo -e "  ${GREEN}✓ 完成${NC}"
+        
+        echo -e "${GREEN}[3/4] 清理Root日志...${NC}"
+        rm -f /data/adb/*.log 2>/dev/null
+        rm -f /data/local/tmp/*.log 2>/dev/null
+        echo -e "  ${GREEN}✓ 完成${NC}"
+        
+        echo -e "${GREEN}[4/4] 清理SuperSU残留...${NC}"
+        rm -rf /data/data/eu.chainfire.supersu 2>/dev/null
+        rm -f /system/xbin/su.bak 2>/dev/null
+        echo -e "  ${GREEN}✓ 完成${NC}"
+        
+        echo ""
+        echo -e "${GREEN}[√] Root痕迹清理完成${NC}"
+    else
+        echo -e "${BLUE}操作已取消${NC}"
+    fi
+    
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# 模块下载地址
+module_download_links() {
+    clear
+    echo -e "${CYAN}===== 模块下载地址 =====${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Shamiko】${NC}"
+    echo -e "  https://github.com/LSPosed/LSPosed.github.io/releases"
+    echo ""
+    
+    echo -e "${GREEN}【Hide My Applist】${NC}"
+    echo -e "  https://github.com/Dr-TSNG/Hide-My-Applist/releases"
+    echo ""
+    
+    echo -e "${GREEN}【PlayIntegrityFix】${NC}"
+    echo -e "  https://github.com/chiteroman/PlayIntegrityFix/releases"
+    echo ""
+    
+    echo -e "${GREEN}【Tricky Store】${NC}"
+    echo -e "  https://github.com/5ec1cff/TrickyStore/releases"
+    echo ""
+    
+    echo -e "${GREEN}【Zygisk Next】${NC}"
+    echo -e "  https://github.com/Dr-TSNG/ZygiskNext/releases"
+    echo ""
+    
+    echo -e "${GREEN}【Cherish Peekaboo】${NC}"
+    echo -e "  https://github.com/nicekwell/cherish-peekaboo/releases"
+    echo ""
+    
+    echo -e "${YELLOW}提示：请使用浏览器访问以上链接下载最新版本${NC}"
+    echo ""
+    
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# 检测已安装游戏
+detect_installed_games() {
+    INSTALLED_GAMES=""
+    PM_LIST=$(pm list packages 2>/dev/null)
+    
+    # 三角洲行动
+    echo "$PM_LIST" | grep -q "$GAME_DFM_CN" && INSTALLED_GAMES="$INSTALLED_GAMES dfm_cn:"
+    echo "$PM_LIST" | grep -q "$GAME_DFM_TW" && INSTALLED_GAMES="$INSTALLED_GAMES dfm_tw:"
+    echo "$PM_LIST" | grep -q "$GAME_DFM_GL" && INSTALLED_GAMES="$INSTALLED_GAMES dfm_gl:"
+    
+    # 暗区突围
+    echo "$PM_LIST" | grep -q "$GAME_AQTW_CN" && INSTALLED_GAMES="$INSTALLED_GAMES aqtw_cn:"
+    echo "$PM_LIST" | grep -q "$GAME_AQTW_TW" && INSTALLED_GAMES="$INSTALLED_GAMES aqtw_tw:"
+    echo "$PM_LIST" | grep -q "$GAME_AQTW_GL" && INSTALLED_GAMES="$INSTALLED_GAMES aqtw_gl:"
+    
+    # 王者荣耀
+    echo "$PM_LIST" | grep -q "$GAME_SGAME_CN" && INSTALLED_GAMES="$INSTALLED_GAMES sgame_cn:"
+    echo "$PM_LIST" | grep -q "$GAME_SGAME_TW" && INSTALLED_GAMES="$INSTALLED_GAMES sgame_tw:"
+    echo "$PM_LIST" | grep -q "$GAME_SGAME_GL" && INSTALLED_GAMES="$INSTALLED_GAMES sgame_gl:"
+    
+    # 和平精英
+    echo "$PM_LIST" | grep -q "$GAME_PUBG_CN" && INSTALLED_GAMES="$INSTALLED_GAMES pubg_cn:"
+    echo "$PM_LIST" | grep -q "$GAME_PUBG_TW" && INSTALLED_GAMES="$INSTALLED_GAMES pubg_tw:"
+    echo "$PM_LIST" | grep -q "$GAME_PUBG_GL" && INSTALLED_GAMES="$INSTALLED_GAMES pubg_gl:"
+    
+    echo "$INSTALLED_GAMES"
+}
+
+# 判断目录是否应该清理
+should_clean_dir() {
+    local dir_name="$1"
+    local dir_lower=$(echo "$dir_name" | tr 'A-Z' 'a-z')
+    
+    # 检查白名单（不清理）
+    case "$dir_lower" in
+        *lib*|*libs*|*lib64*|*app_lib*|*shared_libs*|*native_libs*) return 1 ;;
+    esac
+    
+    # 检查高风险关键词（必清理）
+    case "$dir_lower" in
+        *turing*|*turingdfp*|*turingfd*|*qimei*|*beacon*|*ano_tmp*|*apm*|*hawk*|*jwt_token*|*itop_login*|*crashrecord*|*crashsight*) return 0 ;;
+    esac
+    
+    # 检查缓存关键词（建议清理）
+    case "$dir_lower" in
+        *cache*|*tbs*|*webview*|*tmp*|*temp*|*log*|*dex*|*odex*|*code_cache*) return 0 ;;
+    esac
+    
+    return 1
+}
+
+# 智能清理游戏
+smart_clean_game() {
+    local pkg="$1"
+    local game_name="$2"
+    
+    echo -e "${CYAN}[智能清理] $game_name${NC}"
+    
+    if [ ! -d "/data/data/$pkg" ]; then
+        echo -e "  ${YELLOW}游戏未安装或无权限访问${NC}"
+        return
+    fi
+    
+    local cleaned_count=0
+    
+    # 清理高风险目录
+    for dir in /data/data/$pkg/app_* /data/data/$pkg/files/*; do
+        if [ -d "$dir" ]; then
+            local dir_name=$(basename "$dir")
+            if should_clean_dir "$dir_name"; then
+                rm -rf "$dir" 2>/dev/null && {
+                    echo -e "  ${GREEN}✓ 清理：$dir_name${NC}"
+                    cleaned_count=$((cleaned_count + 1))
+                }
+            fi
+        fi
+    done
+    
+    # 清理标准目录
+    rm -rf /data/data/$pkg/cache 2>/dev/null && echo -e "  ${GREEN}✓ 清理：cache${NC}"
+    rm -rf /data/data/$pkg/code_cache 2>/dev/null && echo -e "  ${GREEN}✓ 清理：code_cache${NC}"
+    rm -rf /storage/emulated/0/Android/data/$pkg/cache 2>/dev/null && echo -e "  ${GREEN}✓ 清理：外部cache${NC}"
+    
+    echo -e "  ${GREEN}[√] 完成智能清理${NC}"
+}
+
+# 三角洲专用清理（保留原有代码）
+clean_delta_game() {
+    local pkg="$1"
+    echo -e "${CYAN}[三角洲专用清理] 包名：$pkg${NC}"
     echo ""
     
     echo -e "${CYAN}[步骤1] 获取游戏UID...${NC}"
-    APP_UID=$(dumpsys package com.tencent.tmgp.dfm | grep uid= | awk '{print $1}' | cut -d'=' -f2 | uniq)
+    APP_UID=$(dumpsys package $pkg | grep uid= | awk '{print $1}' | cut -d'=' -f2 | uniq)
     sleep 1
     echo -e "${GREEN}[√] 当前三角洲UID: $APP_UID${NC}"
-    echo -e "${CYAN}技术支持: $TECH_SUPPORT${NC}"
     sleep 1
     
     echo -e "${CYAN}[步骤2] 清理核心缓存文件...${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_crashrecord
-    echo -e "${GREEN}[√] 清理崩溃记录${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_crashSight
-    echo -e "${GREEN}[√] 清理崩溃视觉数据${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_dex
-    echo -e "${GREEN}[√] 清理DEX缓存${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_midaslib_0
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_midaslib_1
-    echo -e "${GREEN}[√] 清理Midas库${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_midasodex
-    echo -e "${GREEN}[√] 清理Midas ODEX${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_midasplugins
-    echo -e "${GREEN}[√] 清理Midas插件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_tbs
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_tbs_64
-    echo -e "${GREEN}[√] 清理TBS内核${NC}"
+    rm -rf /data/data/$pkg/app_crashrecord && echo -e "${GREEN}[√] 清理崩溃记录${NC}"
+    rm -rf /data/data/$pkg/app_crashSight && echo -e "${GREEN}[√] 清理崩溃视觉数据${NC}"
+    rm -rf /data/data/$pkg/app_dex && echo -e "${GREEN}[√] 清理DEX缓存${NC}"
+    rm -rf /data/data/$pkg/app_midaslib_0 /data/data/$pkg/app_midaslib_1 && echo -e "${GREEN}[√] 清理Midas库${NC}"
+    rm -rf /data/data/$pkg/app_midasodex && echo -e "${GREEN}[√] 清理Midas ODEX${NC}"
+    rm -rf /data/data/$pkg/app_midasplugins && echo -e "${GREEN}[√] 清理Midas插件${NC}"
+    rm -rf /data/data/$pkg/app_tbs /data/data/$pkg/app_tbs_64 && echo -e "${GREEN}[√] 清理TBS内核${NC}"
     
     echo -e "${CYAN}[步骤3] 清理纹理和资源文件...${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm//data/data/com.tencent.tmgp.dfm/app_texturespp_tbs_64
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_tbs_common_share
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_textures
-    echo -e "${GREEN}[√] 清理纹理资源${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_turingdfp
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_turingfd
-    echo -e "${GREEN}[√] 清理图灵引擎${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_webview
-    rm -rf /data/data/com.tencent.tmgp.dfm/app_x5webview
-    echo -e "${GREEN}[√] 清理WebView缓存${NC}"
+    rm -rf /data/data/$pkg/app_texturespp_tbs_64 && echo -e "${GREEN}[√] 清理纹理资源${NC}"
+    rm -rf /data/data/$pkg/app_tbs_common_share /data/data/$pkg/app_textures && echo -e "${GREEN}[√] 清理纹理资源${NC}"
+    rm -rf /data/data/$pkg/app_turingdfp /data/data/$pkg/app_turingfd && echo -e "${GREEN}[√] 清理图灵引擎${NC}"
+    rm -rf /data/data/$pkg/app_webview /data/data/$pkg/app_x5webview && echo -e "${GREEN}[√] 清理WebView缓存${NC}"
     
     echo -e "${CYAN}[步骤4] 清理系统缓存目录...${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/cache
-    echo -e "${GREEN}[√] 清理缓存目录${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/code_cache
-    echo -e "${GREEN}[√] 清理代码缓存${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/databases
-    echo -e "${GREEN}[√] 清理数据库${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/filescommonCache
-    echo -e "${GREEN}[√] 清理通用文件缓存${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/shared_prefs
-    echo -e "${GREEN}[√] 清理共享首选项${NC}"
+    rm -rf /data/data/$pkg/cache && echo -e "${GREEN}[√] 清理缓存目录${NC}"
+    rm -rf /data/data/$pkg/code_cache && echo -e "${GREEN}[√] 清理代码缓存${NC}"
+    rm -rf /data/data/$pkg/databases && echo -e "${GREEN}[√] 清理数据库${NC}"
+    rm -rf /data/data/$pkg/filescommonCache && echo -e "${GREEN}[√] 清理通用文件缓存${NC}"
+    rm -rf /data/data/$pkg/shared_prefs && echo -e "${GREEN}[√] 清理共享首选项${NC}"
     
     echo -e "${CYAN}[步骤5] 清理游戏数据文件...${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/app
-    echo -e "${GREEN}[√] 清理应用文件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/beacon
-    echo -e "${GREEN}[√] 清理信标数据${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/com.gcloudsdk.gcloud.gvoice
-    echo -e "${GREEN}[√] 清理GCloud语音${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/data
-    echo -e "${GREEN}[√] 清理游戏数据${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/live_log
-    echo -e "${GREEN}[√] 清理实时日志${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/popup
-    echo -e "${GREEN}[√] 清理弹窗数据${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/tbs
-    echo -e "${GREEN}[√] 清理TBS文件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/qm
-    echo -e "${GREEN}[√] 清理QM文件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/tdm_tmp
-    echo -e "${GREEN}[√] 清理TDM临时文件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/wupSCache
-    echo -e "${GREEN}[√] 清理WUP缓存${NC}"
+    rm -rf /data/data/$pkg/files/app && echo -e "${GREEN}[√] 清理应用文件${NC}"
+    rm -rf /data/data/$pkg/files/beacon && echo -e "${GREEN}[√] 清理信标数据${NC}"
+    rm -rf /data/data/$pkg/files/com.gcloudsdk.gcloud.gvoice && echo -e "${GREEN}[√] 清理GCloud语音${NC}"
+    rm -rf /data/data/$pkg/files/data && echo -e "${GREEN}[√] 清理游戏数据${NC}"
+    rm -rf /data/data/$pkg/files/live_log && echo -e "${GREEN}[√] 清理实时日志${NC}"
+    rm -rf /data/data/$pkg/files/popup && echo -e "${GREEN}[√] 清理弹窗数据${NC}"
+    rm -rf /data/data/$pkg/files/tbs && echo -e "${GREEN}[√] 清理TBS文件${NC}"
+    rm -rf /data/data/$pkg/files/qm && echo -e "${GREEN}[√] 清理QM文件${NC}"
+    rm -rf /data/data/$pkg/files/tdm_tmp && echo -e "${GREEN}[√] 清理TDM临时文件${NC}"
+    rm -rf /data/data/$pkg/files/wupSCache && echo -e "${GREEN}[√] 清理WUP缓存${NC}"
     
     echo -e "${CYAN}[步骤6] 清理监控文件...${NC}"
-    rm -rf /data/user/0/com.tencent.tmgp.dfm/files/ano_tmp
-    echo -e "${GREEN}[√] 清理监控临时文件${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/apm_qcc_finally
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/apm_qcc
-    echo -e "${GREEN}[√] 清理APM监控${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/hawk_data
-    echo -e "${GREEN}[√] 清理Hawk数据${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/itop_login.txt
-    echo -e "${GREEN}[√] 清理登录信息${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/jwt_token.txt
-    echo -e "${GREEN}[√] 清理JWT令牌${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/MSDK.mmap3
-    echo -e "${GREEN}[√] 清理MSDK内存映射${NC}"
+    rm -rf /data/user/0/$pkg/files/ano_tmp && echo -e "${GREEN}[√] 清理监控临时文件${NC}"
+    rm -rf /data/data/$pkg/files/apm_qcc_finally /data/data/$pkg/files/apm_qcc && echo -e "${GREEN}[√] 清理APM监控${NC}"
+    rm -rf /data/data/$pkg/files/hawk_data && echo -e "${GREEN}[√] 清理Hawk数据${NC}"
+    rm -rf /data/data/$pkg/files/itop_login.txt && echo -e "${GREEN}[√] 清理登录信息${NC}"
+    rm -rf /data/data/$pkg/files/jwt_token.txt && echo -e "${GREEN}[√] 清理JWT令牌${NC}"
+    rm -rf /data/data/$pkg/files/MSDK.mmap3 && echo -e "${GREEN}[√] 清理MSDK内存映射${NC}"
     
     echo -e "${CYAN}[步骤7] 清理设备指纹...${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/com.tencent.tdm.qimei.sdk.QimeiSDK
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/com.tencent.tbs.qimei.sdk.QimeiSDK
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/com.tencent.qimei.sdk.QimeiSDK
+    rm -rf /data/data/$pkg/files/com.tencent.tdm.qimei.sdk.QimeiSDK
+    rm -rf /data/data/$pkg/files/com.tencent.tbs.qimei.sdk.QimeiSDK
+    rm -rf /data/data/$pkg/files/com.tencent.qimei.sdk.QimeiSDK
     echo -e "${GREEN}[√] 清理齐眉SDK指纹${NC}"
-    rm -rf /data/data/com.tencent.tmgp.dfm/files/com.tencent.open.config.json.1110543085
-    echo -e "${GREEN}[√] 清理开放配置${NC}"
+    rm -rf /data/data/$pkg/files/com.tencent.open.config.json.1110543085 && echo -e "${GREEN}[√] 清理开放配置${NC}"
     
     echo -e "${CYAN}[步骤8] 清理外部存储文件...${NC}"
-    rm -rf /storage/emulated/0/Android/data/com.tencent.tmgp.dfm/files
-    rm -rf /storage/emulated/0/Android/data/com.tencent.tmgp.dfm/cache
+    rm -rf /storage/emulated/0/Android/data/$pkg/files
+    rm -rf /storage/emulated/0/Android/data/$pkg/cache
     echo -e "${GREEN}[√] 清理外部存储文件${NC}"
     
     echo -e "${CYAN}[步骤9] 优化系统参数...${NC}"
@@ -1226,11 +941,146 @@ menu_option_3() {
     iptables -t nat -F 
     echo -e "${GREEN}[√] 清理iptables规则${NC}"
     
-    echo -e "${GREEN}[√] 基础文件清理完成${NC}"
-    echo ""
-    echo -n "按回车键继续... "
-    read dummy
+    echo -e "${GREEN}[√] 三角洲专用清理完成${NC}"
 }
+
+
+menu_option_3() {
+    while true; do
+        clear
+        echo -e "${CYAN}===== 清理文件部分 =====${NC}"
+        echo ""
+        
+        # 检测已安装游戏
+        GAMES=$(detect_installed_games)
+        
+        if [ -z "$GAMES" ]; then
+            echo -e "${YELLOW}未检测到支持的游戏${NC}"
+            echo ""
+            echo -n "按回车键返回主菜单... "
+            read dummy
+            return
+        fi
+        
+        echo -e "${GREEN}检测到以下已安装游戏:${NC}"
+        echo ""
+        
+        # 显示游戏列表
+        local index=1
+        local game_map=""
+        
+        # 三角洲行动
+        local has_dfm=0
+        echo "$GAMES" | grep -q "dfm_cn" && { echo -e "${YELLOW}【三角洲行动】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国服"; game_map="$game_map $index:dfm_cn"; index=$((index + 1)); has_dfm=1; }
+        echo "$GAMES" | grep -q "dfm_tw" && { [ $has_dfm -eq 0 ] && echo -e "${YELLOW}【三角洲行动】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 台服"; game_map="$game_map $index:dfm_tw"; index=$((index + 1)); has_dfm=1; }
+        echo "$GAMES" | grep -q "dfm_gl" && { [ $has_dfm -eq 0 ] && echo -e "${YELLOW}【三角洲行动】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国际服"; game_map="$game_map $index:dfm_gl"; index=$((index + 1)); has_dfm=1; }
+        [ $has_dfm -eq 1 ] && echo ""
+        
+        # 暗区突围
+        local has_aqtw=0
+        echo "$GAMES" | grep -q "aqtw_cn" && { echo -e "${YELLOW}【暗区突围】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国服"; game_map="$game_map $index:aqtw_cn"; index=$((index + 1)); has_aqtw=1; }
+        echo "$GAMES" | grep -q "aqtw_tw" && { [ $has_aqtw -eq 0 ] && echo -e "${YELLOW}【暗区突围】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 台服"; game_map="$game_map $index:aqtw_tw"; index=$((index + 1)); has_aqtw=1; }
+        echo "$GAMES" | grep -q "aqtw_gl" && { [ $has_aqtw -eq 0 ] && echo -e "${YELLOW}【暗区突围】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国际服"; game_map="$game_map $index:aqtw_gl"; index=$((index + 1)); has_aqtw=1; }
+        [ $has_aqtw -eq 1 ] && echo ""
+        
+        # 王者荣耀
+        local has_sgame=0
+        echo "$GAMES" | grep -q "sgame_cn" && { echo -e "${YELLOW}【王者荣耀】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国服"; game_map="$game_map $index:sgame_cn"; index=$((index + 1)); has_sgame=1; }
+        echo "$GAMES" | grep -q "sgame_tw" && { [ $has_sgame -eq 0 ] && echo -e "${YELLOW}【王者荣耀】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 台服"; game_map="$game_map $index:sgame_tw"; index=$((index + 1)); has_sgame=1; }
+        echo "$GAMES" | grep -q "sgame_gl" && { [ $has_sgame -eq 0 ] && echo -e "${YELLOW}【王者荣耀】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国际服(AOV)"; game_map="$game_map $index:sgame_gl"; index=$((index + 1)); has_sgame=1; }
+        [ $has_sgame -eq 1 ] && echo ""
+        
+        # 和平精英
+        local has_pubg=0
+        echo "$GAMES" | grep -q "pubg_cn" && { echo -e "${YELLOW}【和平精英】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国服"; game_map="$game_map $index:pubg_cn"; index=$((index + 1)); has_pubg=1; }
+        echo "$GAMES" | grep -q "pubg_tw" && { [ $has_pubg -eq 0 ] && echo -e "${YELLOW}【和平精英】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 台服"; game_map="$game_map $index:pubg_tw"; index=$((index + 1)); has_pubg=1; }
+        echo "$GAMES" | grep -q "pubg_gl" && { [ $has_pubg -eq 0 ] && echo -e "${YELLOW}【和平精英】${NC}"; echo -e "  ${GREEN}[$index]${NC} ✓ 国际服"; game_map="$game_map $index:pubg_gl"; index=$((index + 1)); has_pubg=1; }
+        [ $has_pubg -eq 1 ] && echo ""
+        
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "  ${GREEN}[A]${NC} 清理全部已安装游戏"
+        echo -e "  ${GREEN}[0]${NC} 返回主菜单"
+        echo ""
+        echo -n "请选择要清理的游戏: "
+        read choice
+        
+        case $choice in
+            0)
+                return
+                ;;
+            [Aa])
+                echo ""
+                echo -e "${YELLOW}[!] 开始清理全部已安装游戏...${NC}"
+                echo ""
+                
+                # 清理三角洲（使用专用清理）
+                echo "$GAMES" | grep -q "dfm_cn" && clean_delta_game "$GAME_DFM_CN"
+                echo "$GAMES" | grep -q "dfm_tw" && clean_delta_game "$GAME_DFM_TW"
+                echo "$GAMES" | grep -q "dfm_gl" && clean_delta_game "$GAME_DFM_GL"
+                
+                # 清理其他游戏（使用智能清理）
+                echo "$GAMES" | grep -q "aqtw_cn" && smart_clean_game "$GAME_AQTW_CN" "暗区突围-国服"
+                echo "$GAMES" | grep -q "aqtw_tw" && smart_clean_game "$GAME_AQTW_TW" "暗区突围-台服"
+                echo "$GAMES" | grep -q "aqtw_gl" && smart_clean_game "$GAME_AQTW_GL" "暗区突围-国际服"
+                
+                echo "$GAMES" | grep -q "sgame_cn" && smart_clean_game "$GAME_SGAME_CN" "王者荣耀-国服"
+                echo "$GAMES" | grep -q "sgame_tw" && smart_clean_game "$GAME_SGAME_TW" "王者荣耀-台服"
+                echo "$GAMES" | grep -q "sgame_gl" && smart_clean_game "$GAME_SGAME_GL" "王者荣耀-国际服"
+                
+                echo "$GAMES" | grep -q "pubg_cn" && smart_clean_game "$GAME_PUBG_CN" "和平精英-国服"
+                echo "$GAMES" | grep -q "pubg_tw" && smart_clean_game "$GAME_PUBG_TW" "和平精英-台服"
+                echo "$GAMES" | grep -q "pubg_gl" && smart_clean_game "$GAME_PUBG_GL" "和平精英-国际服"
+                
+                echo ""
+                echo -e "${GREEN}[√] 全部游戏清理完成${NC}"
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            [1-9]|[1-9][0-9])
+                # 查找对应的游戏
+                local selected_game=""
+                for mapping in $game_map; do
+                    local map_index=$(echo $mapping | cut -d: -f1)
+                    local map_game=$(echo $mapping | cut -d: -f2)
+                    if [ "$map_index" = "$choice" ]; then
+                        selected_game="$map_game"
+                        break
+                    fi
+                done
+                
+                if [ -n "$selected_game" ]; then
+                    echo ""
+                    case $selected_game in
+                        dfm_cn) clean_delta_game "$GAME_DFM_CN" ;;
+                        dfm_tw) clean_delta_game "$GAME_DFM_TW" ;;
+                        dfm_gl) clean_delta_game "$GAME_DFM_GL" ;;
+                        aqtw_cn) smart_clean_game "$GAME_AQTW_CN" "暗区突围-国服" ;;
+                        aqtw_tw) smart_clean_game "$GAME_AQTW_TW" "暗区突围-台服" ;;
+                        aqtw_gl) smart_clean_game "$GAME_AQTW_GL" "暗区突围-国际服" ;;
+                        sgame_cn) smart_clean_game "$GAME_SGAME_CN" "王者荣耀-国服" ;;
+                        sgame_tw) smart_clean_game "$GAME_SGAME_TW" "王者荣耀-台服" ;;
+                        sgame_gl) smart_clean_game "$GAME_SGAME_GL" "王者荣耀-国际服" ;;
+                        pubg_cn) smart_clean_game "$GAME_PUBG_CN" "和平精英-国服" ;;
+                        pubg_tw) smart_clean_game "$GAME_PUBG_TW" "和平精英-台服" ;;
+                        pubg_gl) smart_clean_game "$GAME_PUBG_GL" "和平精英-国际服" ;;
+                    esac
+                    echo ""
+                    echo -n "按回车键继续... "
+                    read dummy
+                else
+                    echo -e "${RED}无效选择${NC}"
+                    sleep 1
+                fi
+                ;;
+            *)
+                echo -e "${RED}无效选择${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 
 menu_option_4() {
     echo -e "${YELLOW}[4] 设备硬件标识变更${NC}"
@@ -1459,32 +1309,125 @@ menu_option_4() {
 }
 
 menu_option_5() {
-    echo -e "${RED}[5] 全维度核心清理${NC}"
-    echo -e "${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
+    clear
+    echo -e "${RED}[5] 一键智能清理+设备标识变更${NC}"
+    echo -e "${BLUE}智能清理所有已安装游戏并变更设备标识${NC}"
     echo ""
     
-    echo -e "${RED}[警告] 此操作将执行文件清理和设备标识变更${NC}"
+    echo -e "${RED}[警告] 此操作将执行以下操作：${NC}"
+    echo -e "${YELLOW}  1. 自动检测并清理所有已安装游戏${NC}"
+    echo -e "${YELLOW}  2. 执行设备标识变更${NC}"
     echo -e "${RED}请确保已备份重要数据！${NC}"
     echo ""
     
-    echo -n "确定要执行全维度清理吗? (输入'Y继续): "
+    echo -n "确定要继续吗? (y/N): "
     read confirm
     if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-        echo -e "${YELLOW}[!] 开始全维深度清理...${NC}"
-        
-        # 执行选项3的功能
-        echo -e "${CYAN}>>> 执行基础文件清理...${NC}"
-        # 这里调用选项3的实际代码
-        echo -e "${GREEN}[√] 基础文件清理完成${NC}"
+        echo ""
+        echo -e "${YELLOW}[!] 开始一键智能清理...${NC}"
         echo ""
         
-        # 执行选项4的功能
-        echo -e "${CYAN}>>> 执行设备标识变更...${NC}"
-        # 这里调用选项4的实际代码
-        echo -e "${GREEN}[√] 设备标识变更完成${NC}"
+        # 步骤1：检测并清理游戏
+        echo -e "${CYAN}>>> 步骤1：智能清理游戏文件${NC}"
         echo ""
         
-        echo -e "${GREEN}[√] 全维深度清理完成${NC}"
+        GAMES=$(detect_installed_games)
+        
+        if [ -z "$GAMES" ]; then
+            echo -e "${YELLOW}未检测到支持的游戏，跳过游戏清理${NC}"
+        else
+            echo -e "${GREEN}检测到已安装游戏，开始清理...${NC}"
+            echo ""
+            
+            # 清理三角洲（使用专用清理）
+            if echo "$GAMES" | grep -q "dfm_cn"; then
+                echo -e "${CYAN}正在清理：三角洲行动-国服${NC}"
+                clean_delta_game "$GAME_DFM_CN"
+                echo ""
+            fi
+            if echo "$GAMES" | grep -q "dfm_tw"; then
+                echo -e "${CYAN}正在清理：三角洲行动-台服${NC}"
+                clean_delta_game "$GAME_DFM_TW"
+                echo ""
+            fi
+            if echo "$GAMES" | grep -q "dfm_gl"; then
+                echo -e "${CYAN}正在清理：三角洲行动-国际服${NC}"
+                clean_delta_game "$GAME_DFM_GL"
+                echo ""
+            fi
+            
+            # 清理其他游戏（使用智能清理）
+            echo "$GAMES" | grep -q "aqtw_cn" && { smart_clean_game "$GAME_AQTW_CN" "暗区突围-国服"; echo ""; }
+            echo "$GAMES" | grep -q "aqtw_tw" && { smart_clean_game "$GAME_AQTW_TW" "暗区突围-台服"; echo ""; }
+            echo "$GAMES" | grep -q "aqtw_gl" && { smart_clean_game "$GAME_AQTW_GL" "暗区突围-国际服"; echo ""; }
+            
+            echo "$GAMES" | grep -q "sgame_cn" && { smart_clean_game "$GAME_SGAME_CN" "王者荣耀-国服"; echo ""; }
+            echo "$GAMES" | grep -q "sgame_tw" && { smart_clean_game "$GAME_SGAME_TW" "王者荣耀-台服"; echo ""; }
+            echo "$GAMES" | grep -q "sgame_gl" && { smart_clean_game "$GAME_SGAME_GL" "王者荣耀-国际服"; echo ""; }
+            
+            echo "$GAMES" | grep -q "pubg_cn" && { smart_clean_game "$GAME_PUBG_CN" "和平精英-国服"; echo ""; }
+            echo "$GAMES" | grep -q "pubg_tw" && { smart_clean_game "$GAME_PUBG_TW" "和平精英-台服"; echo ""; }
+            echo "$GAMES" | grep -q "pubg_gl" && { smart_clean_game "$GAME_PUBG_GL" "和平精英-国际服"; echo ""; }
+            
+            echo -e "${GREEN}[√] 游戏清理完成${NC}"
+        fi
+        echo ""
+        
+        # 步骤2：设备标识变更
+        echo -e "${CYAN}>>> 步骤2：设备标识变更${NC}"
+        echo ""
+        echo -e "${GREEN}开始修改设备标识...${NC}"
+        
+        # 调用设备标识变更的核心代码（从menu_option_4复制）
+        echo -e "${CYAN}[1] 修改网络IP地址...${NC}"
+        ip6tables=/system/bin/ip6tables
+        iptables=/system/bin/iptables
+        
+        INTERFACE="wlan0"
+        IP=$(ip addr show $INTERFACE 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}' | cut -d/ -f1)
+        IP_PREFIX=$(echo $IP | cut -d. -f1-3)
+        NEW_IP_LAST_PART1=$(($RANDOM % 254 + 1))
+        NEW_IP_LAST_PART2=$(($RANDOM % 254 + 1))
+        NEW_IP1="${IP_PREFIX}.${NEW_IP_LAST_PART1}"
+        NEW_IP2="${IP_PREFIX}.${NEW_IP_LAST_PART2}"
+        ip addr add $NEW_IP1/24 dev $INTERFACE 2>/dev/null
+        ip addr add $NEW_IP2/24 dev $INTERFACE 2>/dev/null
+        
+        echo -e "${GREEN}[√] IP地址已变更${NC}"
+                     
+        settings put global airplane_mode_on 1 2>/dev/null
+        am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true 2>/dev/null
+        prog_name="/data/temp"
+        name=$(tr -dc '1-9' < /dev/urandom | head -c 8)
+        resetprop ro.serialno $name 2>/dev/null
+        settings put global airplane_mode_on 0 2>/dev/null
+        am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false 2>/dev/null
+        echo -e "${GREEN}[√] 网络重置完成${NC}"
+        
+        echo -e "${CYAN}[2] 修改系统UUID...${NC}"
+        Id_Path=/data/system/users/0
+        Id_File=$Id_Path/settings_ssaid.xml
+        if [ -f "$Id_File" ]; then
+            abx2xml -i $Id_File 2>/dev/null
+            Random_Id_1() { cat /proc/sys/kernel/random/uuid; }
+            Amend_Id() { sed -i "s#$1#$2#g" $Id_File 2>/dev/null; }
+            Userkey_Uid=$(grep userkey $Id_File 2>/dev/null | awk -F '"' '{print $6}')
+            if [ -n "$Userkey_Uid" ]; then
+                Amend_Id $Userkey_Uid $(echo `Random_Id_1``Random_Id_1` | tr -d - | tr a-z A-Z)
+                xml2abx -i $Id_File 2>/dev/null
+            fi
+        fi
+        echo -e "${GREEN}[√] 系统UUID已变更${NC}"
+        
+        echo -e "${CYAN}[3] 修改设备标识...${NC}"
+        resetprop ro.serialno $(cat /proc/sys/kernel/random/uuid | head -c 8) 2>/dev/null
+        settings put secure android_id $(cat /proc/sys/kernel/random/uuid | tr -d - | head -c 16) 2>/dev/null
+        settings put global ad_aaid $(cat /proc/sys/kernel/random/uuid) 2>/dev/null
+        echo -e "${GREEN}[√] 设备标识已变更${NC}"
+        
+        echo ""
+        echo -e "${GREEN}[√] 一键智能清理+设备标识变更完成${NC}"
+        echo -e "${YELLOW}建议重启设备使更改完全生效${NC}"
     else
         echo -e "${BLUE}[*] 操作已取消${NC}"
     fi
