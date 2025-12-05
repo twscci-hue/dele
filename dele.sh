@@ -1536,7 +1536,7 @@ detect_root_environment() {
     elif [ -d "/data/adb/ap" ] || pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
         root_type="APatch"
         if pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
-            root_version=$(pm dump me.bmax.apatch 2>/dev/null | grep "versionName" | head -n 1 | awk '{print $1}' | cut -d'=' -f2)
+            root_version=$(pm dump me.bmax.apatch 2>/dev/null | grep "versionName" | head -n 1 | awk -F'=' '{print $2}')
         fi
     fi
     
@@ -1791,17 +1791,19 @@ one_click_configure() {
         echo -e "${CYAN}[4/4]${NC} 清理 Root 痕迹..."
         local cleaned=0
         
-        if [ -f "/system/app/Superuser.apk" ]; then
-            rm -f /system/app/Superuser.apk 2>/dev/null && cleaned=1
-        fi
+        local trace_files=(
+            "/system/app/Superuser.apk"
+            "/system/xbin/su"
+            "/data/local/tmp/su"
+        )
         
-        if [ -f "/system/xbin/su" ] && [ ! -L "/system/xbin/su" ]; then
-            rm -f /system/xbin/su 2>/dev/null && cleaned=1
-        fi
-        
-        if [ -f "/data/local/tmp/su" ]; then
-            rm -f /data/local/tmp/su 2>/dev/null && cleaned=1
-        fi
+        for file in "${trace_files[@]}"; do
+            if [ -f "$file" ] && [ ! -L "$file" ]; then
+                if rm -f "$file" 2>/dev/null; then
+                    cleaned=1
+                fi
+            fi
+        done
         
         if [ "$cleaned" -eq 1 ]; then
             echo -e "  ${GREEN}[√]${NC} 已清理部分 Root 痕迹"
@@ -1958,6 +1960,8 @@ clean_root_traces() {
             if rm -f "$file" 2>/dev/null; then
                 cleaned_count=$((cleaned_count + 1))
                 echo -e "  ${GREEN}[√]${NC} 已删除: $file"
+            else
+                echo -e "  ${YELLOW}[!]${NC} 删除失败: $file (权限不足或文件系统只读)"
             fi
         fi
     done
