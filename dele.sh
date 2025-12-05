@@ -1536,7 +1536,7 @@ detect_root_environment() {
     elif [ -d "/data/adb/ap" ] || pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
         root_type="APatch"
         if pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
-            root_version=$(pm dump me.bmax.apatch 2>/dev/null | grep "versionName" | head -n 1 | awk -F'=' '{print $2}')
+            root_version=$(pm dump me.bmax.apatch 2>/dev/null | grep "versionName" | head -n 1 | sed 's/.*versionName=\([^ ]*\).*/\1/')
         fi
     fi
     
@@ -1801,13 +1801,14 @@ one_click_configure() {
             if [ -f "$file" ] && [ ! -L "$file" ]; then
                 if rm -f "$file" 2>/dev/null; then
                     cleaned=1
+                    echo -e "  ${GREEN}[√]${NC} 已删除: $file"
+                else
+                    echo -e "  ${YELLOW}[!]${NC} 删除失败: $file"
                 fi
             fi
         done
         
-        if [ "$cleaned" -eq 1 ]; then
-            echo -e "  ${GREEN}[√]${NC} 已清理部分 Root 痕迹"
-        else
+        if [ "$cleaned" -eq 0 ]; then
             echo -e "  ${GREEN}[√]${NC} 无需清理"
         fi
         echo ""
@@ -1999,6 +2000,8 @@ clean_root_traces() {
             if rm -rf "$file" 2>/dev/null; then
                 xposed_cleaned=$((xposed_cleaned + 1))
                 echo -e "  ${GREEN}[√]${NC} 已删除: $file"
+            else
+                echo -e "  ${YELLOW}[!]${NC} 删除失败: $file (权限不足或文件系统只读)"
             fi
         fi
     done
