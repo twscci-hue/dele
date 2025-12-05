@@ -1131,7 +1131,7 @@ PUBG_TW="com.vng.pubgmobile"
 PUBG_INTL="com.tencent.ig"
 
 # ==================== 清理关键词定义 ====================
-HIGH_RISK_KEYWORDS="turing turingdfp turingfd qimei beacon ano_tmp apm hawk jwt_token itop_login crashrecord crashSight"
+HIGH_RISK_KEYWORDS="turing turingdfp turingfd qimei beacon ano_tmp apm hawk jwt_token itop_login crashrecord crashsight"
 CACHE_KEYWORDS="cache tbs webview tmp temp log dex odex code_cache"
 SDK_KEYWORDS="midas msdk gcloud gvoice"
 WHITELIST_DIRS="lib libs lib64 app_lib shared_libs native_libs"
