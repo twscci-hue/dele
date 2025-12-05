@@ -1652,7 +1652,7 @@ menu_option_6() {
             echo -e "${GREEN}    [√] Zygisk Next 模块${NC}"
         fi
         
-        # 清理最后的逗号和空格
+        # 清理最后的逗号和空格（使用参数扩展移除尾部 ", "）
         HIDE_MODULES=${HIDE_MODULES%, }
         
         if [ -z "$HIDE_MODULES" ]; then
@@ -1724,51 +1724,61 @@ menu_option_6() {
     elif echo "$ROOT_TYPE" | grep -q "Magisk 官方版"; then
         # Magisk 官方版的建议
         if [ -n "$MAGISK_VERSION" ]; then
-            # 提取主版本号（移除前缀字符如 v）
+            # 提取主版本号
+            # 支持格式: v25.2, 25.2.1, 26.1 等，提取首个数字部分
             MAJOR_VERSION=$(echo "$MAGISK_VERSION" | sed 's/^[vV]//' | grep -oE '^[0-9]+' | head -n1)
             
-            # 验证是否为有效数字
-            if [ -n "$MAJOR_VERSION" ] && [ "$MAJOR_VERSION" -eq "$MAJOR_VERSION" ] 2>/dev/null && [ "$MAJOR_VERSION" -ge 24 ]; then
-                echo -e "${GREEN}【Magisk 24.0+ 隐藏方案】${NC}"
-                echo -e "${CYAN}1. 启用 Zygisk${NC}"
-                if [ "$ZYGISK_STATUS" = "已启用" ]; then
-                    echo -e "   ${GREEN}✓ Zygisk 已启用${NC}"
-                else
-                    echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
-                    echo -e "   ${YELLOW}• 进入设置 → 启用 Zygisk${NC}"
-                    echo -e "   ${YELLOW}• 重启设备${NC}"
-                fi
-                
-                echo ""
-                echo -e "${CYAN}2. 安装 Shamiko 模块${NC}"
-                if echo "$HIDE_MODULES" | grep -q "Shamiko"; then
-                    echo -e "   ${GREEN}✓ Shamiko 已安装${NC}"
-                else
-                    echo -e "   ${YELLOW}• 下载 Shamiko 模块 (LSPosed/Shamiko)${NC}"
-                    echo -e "   ${YELLOW}• 在 Magisk 中安装模块${NC}"
-                    echo -e "   ${YELLOW}• 重启设备${NC}"
-                fi
-                
-                echo ""
-                echo -e "${CYAN}3. 配置排除列表 (Denylist)${NC}"
-                echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
-                echo -e "   ${YELLOW}• 进入设置 → 启用配置排除列表${NC}"
-                echo -e "   ${YELLOW}• 进入配置排除列表${NC}"
-                echo -e "   ${YELLOW}• 添加: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
-                echo -e "   ${YELLOW}• 勾选所有进程${NC}"
-                
-            else
-                echo -e "${GREEN}【Magisk 23.x 及以下隐藏方案】${NC}"
-                echo -e "${CYAN}1. 启用 MagiskHide${NC}"
-                echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
-                echo -e "   ${YELLOW}• 进入设置 → 启用 MagiskHide${NC}"
-                
-                echo ""
-                echo -e "${CYAN}2. 添加目标应用${NC}"
-                echo -e "   ${YELLOW}• 进入 MagiskHide${NC}"
-                echo -e "   ${YELLOW}• 搜索并勾选: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
-                echo -e "   ${YELLOW}• 重启游戏${NC}"
-            fi
+            # 验证是否为有效数字（纯数字检测）
+            case "$MAJOR_VERSION" in
+                ''|*[!0-9]*) 
+                    # 不是纯数字或为空，显示通用方案
+                    echo -e "${GREEN}【Magisk 通用隐藏方案】${NC}"
+                    echo -e "${CYAN}请检查您的 Magisk 版本后选择对应方案${NC}"
+                    ;;
+                *)
+                    # 是有效数字，进行版本比较
+                    if [ "$MAJOR_VERSION" -ge 24 ]; then
+                        echo -e "${GREEN}【Magisk 24.0+ 隐藏方案】${NC}"
+                        echo -e "${CYAN}1. 启用 Zygisk${NC}"
+                        if [ "$ZYGISK_STATUS" = "已启用" ]; then
+                            echo -e "   ${GREEN}✓ Zygisk 已启用${NC}"
+                        else
+                            echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                            echo -e "   ${YELLOW}• 进入设置 → 启用 Zygisk${NC}"
+                            echo -e "   ${YELLOW}• 重启设备${NC}"
+                        fi
+                        
+                        echo ""
+                        echo -e "${CYAN}2. 安装 Shamiko 模块${NC}"
+                        if echo "$HIDE_MODULES" | grep -q "Shamiko"; then
+                            echo -e "   ${GREEN}✓ Shamiko 已安装${NC}"
+                        else
+                            echo -e "   ${YELLOW}• 下载 Shamiko 模块 (LSPosed/Shamiko)${NC}"
+                            echo -e "   ${YELLOW}• 在 Magisk 中安装模块${NC}"
+                            echo -e "   ${YELLOW}• 重启设备${NC}"
+                        fi
+                        
+                        echo ""
+                        echo -e "${CYAN}3. 配置排除列表 (Denylist)${NC}"
+                        echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                        echo -e "   ${YELLOW}• 进入设置 → 启用配置排除列表${NC}"
+                        echo -e "   ${YELLOW}• 进入配置排除列表${NC}"
+                        echo -e "   ${YELLOW}• 添加: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
+                        echo -e "   ${YELLOW}• 勾选所有进程${NC}"
+                    else
+                        echo -e "${GREEN}【Magisk 23.x 及以下隐藏方案】${NC}"
+                        echo -e "${CYAN}1. 启用 MagiskHide${NC}"
+                        echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                        echo -e "   ${YELLOW}• 进入设置 → 启用 MagiskHide${NC}"
+                        
+                        echo ""
+                        echo -e "${CYAN}2. 添加目标应用${NC}"
+                        echo -e "   ${YELLOW}• 进入 MagiskHide${NC}"
+                        echo -e "   ${YELLOW}• 搜索并勾选: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
+                        echo -e "   ${YELLOW}• 重启游戏${NC}"
+                    fi
+                    ;;
+            esac
         else
             echo -e "${GREEN}【Magisk 通用隐藏方案】${NC}"
             echo -e "${CYAN}请检查您的 Magisk 版本后选择对应方案${NC}"
