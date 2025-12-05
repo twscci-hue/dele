@@ -276,25 +276,26 @@ should_clean_dir() {
     local dir_name="$1"
     local dir_lower=$(echo "$dir_name" | tr 'A-Z' 'a-z')
     
+    # 使用 case 模式匹配以提高性能
     # 检查高风险关键词
     for keyword in $HIGH_RISK_KEYWORDS; do
-        if echo "$dir_lower" | grep -q "$keyword"; then
-            return 0  # 需要清理
-        fi
+        case "$dir_lower" in
+            *"$keyword"*) return 0 ;;  # 需要清理
+        esac
     done
     
     # 检查缓存关键词
     for keyword in $CACHE_KEYWORDS; do
-        if echo "$dir_lower" | grep -q "$keyword"; then
-            return 0  # 需要清理
-        fi
+        case "$dir_lower" in
+            *"$keyword"*) return 0 ;;  # 需要清理
+        esac
     done
     
     # 检查SDK关键词
     for keyword in $SDK_KEYWORDS; do
-        if echo "$dir_lower" | grep -q "$keyword"; then
-            return 0  # 需要清理
-        fi
+        case "$dir_lower" in
+            *"$keyword"*) return 0 ;;  # 需要清理
+        esac
     done
     
     return 1  # 不需要清理
@@ -505,10 +506,13 @@ menu_option_1() {
     echo -e "${CYAN}正在扫描已安装游戏...${NC}"
     echo ""
     
+    # 缓存包列表以提高性能
+    local installed_packages=$(pm list packages 2>/dev/null)
+    
     # 遍历所有游戏包名
     while IFS='|' read -r pkg game_name; do
         # 检查游戏是否安装
-        if ! pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+        if ! echo "$installed_packages" | grep -q "^package:$pkg$"; then
             continue
         fi
         
@@ -1669,9 +1673,12 @@ menu_option_6() {
     echo -e "${YELLOW}正在检测已安装游戏...${NC}"
     echo ""
     
+    # 缓存包列表以提高性能
+    local installed_packages=$(pm list packages 2>/dev/null)
+    
     # 遍历所有游戏
     while IFS='|' read -r pkg game_name; do
-        if pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+        if echo "$installed_packages" | grep -q "^package:$pkg$"; then
             game_list+=("$index")
             game_names+=("$game_name")
             game_packages+=("$pkg")
@@ -1684,7 +1691,7 @@ menu_option_6() {
     # 显示未安装的游戏（前3个作为示例）
     local uninstalled_count=0
     while IFS='|' read -r pkg game_name; do
-        if ! pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+        if ! echo "$installed_packages" | grep -q "^package:$pkg$"; then
             if [ $uninstalled_count -lt 3 ]; then
                 echo -e "  ${YELLOW}[X] ✗ $game_name - 未安装${NC}"
                 uninstalled_count=$((uninstalled_count + 1))
