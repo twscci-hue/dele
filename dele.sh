@@ -393,14 +393,24 @@ menu_option_2() {
     local GAME_AQTW_TW="com.netease.aqtw.tw"
     local GAME_AQTW_GL="com.netease.aqtw"
     
+    # 常量定义
+    local MAGISK_MIN_ZYGISK_VERSION=24
+    
+    # 缓存pm list结果以提高性能
+    local PM_LIST_CACHE=""
+    
     # 检测Root环境
     detect_root_env() {
+        # 使用缓存的包列表
+        if [ -z "$PM_LIST_CACHE" ]; then
+            PM_LIST_CACHE=$(pm list packages 2>/dev/null)
+        fi
         local ROOT_TYPE=""
         local ROOT_VERSION=""
         local HAS_ROOT=0
         
         # 检测Magisk
-        if [ -d "/data/adb/magisk" ] || pm list packages 2>/dev/null | grep -q "com.topjohnwu.magisk"; then
+        if [ -d "/data/adb/magisk" ] || echo "$PM_LIST_CACHE" | grep -q "com.topjohnwu.magisk"; then
             HAS_ROOT=1
             ROOT_TYPE="Magisk"
             if command -v magisk >/dev/null 2>&1; then
@@ -410,20 +420,20 @@ menu_option_2() {
             fi
             
             # 检测Magisk变体
-            if pm list packages 2>/dev/null | grep -q "io.github.huskydg.magisk"; then
+            if echo "$PM_LIST_CACHE" | grep -q "io.github.huskydg.magisk"; then
                 ROOT_TYPE="Magisk Delta"
-            elif pm list packages 2>/dev/null | grep -q "io.github.vvb2060.magisk"; then
+            elif echo "$PM_LIST_CACHE" | grep -q "io.github.vvb2060.magisk"; then
                 ROOT_TYPE="Magisk Alpha"
             fi
         # 检测KernelSU
-        elif [ -d "/data/adb/kernelsu" ] || pm list packages 2>/dev/null | grep -q "me.weishu.kernelsu"; then
+        elif [ -d "/data/adb/kernelsu" ] || echo "$PM_LIST_CACHE" | grep -q "me.weishu.kernelsu"; then
             HAS_ROOT=1
             ROOT_TYPE="KernelSU"
             if command -v ksud >/dev/null 2>&1; then
                 ROOT_VERSION=$(ksud --version 2>/dev/null | head -1)
             fi
         # 检测APatch
-        elif [ -d "/data/adb/apatch" ] || pm list packages 2>/dev/null | grep -q "me.bmax.apatch"; then
+        elif [ -d "/data/adb/apatch" ] || echo "$PM_LIST_CACHE" | grep -q "me.bmax.apatch"; then
             HAS_ROOT=1
             ROOT_TYPE="APatch"
             if [ -f "/data/adb/apatch/version" ]; then
@@ -457,7 +467,7 @@ menu_option_2() {
         fi
         
         # Hide My Applist
-        if pm list packages 2>/dev/null | grep -q "com.tsng.hidemyapplist"; then
+        if echo "$PM_LIST_CACHE" | grep -q "com.tsng.hidemyapplist"; then
             MODULES="${MODULES}HideMyApplist "
         fi
         
@@ -471,28 +481,27 @@ menu_option_2() {
     
     # 检测已安装的游戏
     detect_installed_games() {
-        local PM_LIST=$(pm list packages 2>/dev/null)
         local INSTALLED=""
         
         # 三角洲行动
-        echo "$PM_LIST" | grep -q "$GAME_DFM_CN" && INSTALLED="${INSTALLED}dfm_cn "
-        echo "$PM_LIST" | grep -q "$GAME_DFM_TW" && INSTALLED="${INSTALLED}dfm_tw "
-        echo "$PM_LIST" | grep -q "$GAME_DFM_GL" && INSTALLED="${INSTALLED}dfm_gl "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_DFM_CN" && INSTALLED="${INSTALLED}dfm_cn "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_DFM_TW" && INSTALLED="${INSTALLED}dfm_tw "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_DFM_GL" && INSTALLED="${INSTALLED}dfm_gl "
         
         # 王者荣耀
-        echo "$PM_LIST" | grep -q "$GAME_SGAME_CN" && INSTALLED="${INSTALLED}sgame_cn "
-        echo "$PM_LIST" | grep -q "$GAME_SGAME_TW" && INSTALLED="${INSTALLED}sgame_tw "
-        echo "$PM_LIST" | grep -q "$GAME_SGAME_GL" && INSTALLED="${INSTALLED}sgame_gl "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_SGAME_CN" && INSTALLED="${INSTALLED}sgame_cn "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_SGAME_TW" && INSTALLED="${INSTALLED}sgame_tw "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_SGAME_GL" && INSTALLED="${INSTALLED}sgame_gl "
         
         # 和平精英
-        echo "$PM_LIST" | grep -q "$GAME_PUBG_CN" && INSTALLED="${INSTALLED}pubg_cn "
-        echo "$PM_LIST" | grep -q "$GAME_PUBG_TW" && INSTALLED="${INSTALLED}pubg_tw "
-        echo "$PM_LIST" | grep -q "$GAME_PUBG_GL" && INSTALLED="${INSTALLED}pubg_gl "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_PUBG_CN" && INSTALLED="${INSTALLED}pubg_cn "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_PUBG_TW" && INSTALLED="${INSTALLED}pubg_tw "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_PUBG_GL" && INSTALLED="${INSTALLED}pubg_gl "
         
         # 暗区突围
-        echo "$PM_LIST" | grep -q "$GAME_AQTW_CN" && INSTALLED="${INSTALLED}aqtw_cn "
-        echo "$PM_LIST" | grep -q "$GAME_AQTW_TW" && INSTALLED="${INSTALLED}aqtw_tw "
-        echo "$PM_LIST" | grep -q "$GAME_AQTW_GL" && INSTALLED="${INSTALLED}aqtw_gl "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_AQTW_CN" && INSTALLED="${INSTALLED}aqtw_cn "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_AQTW_TW" && INSTALLED="${INSTALLED}aqtw_tw "
+        echo "$PM_LIST_CACHE" | grep -q "$GAME_AQTW_GL" && INSTALLED="${INSTALLED}aqtw_gl "
         
         echo "$INSTALLED"
     }
@@ -517,11 +526,16 @@ menu_option_2() {
         echo -e "${CYAN}正在添加 $name ($pkg) 到 Denylist...${NC}"
         
         if command -v magisk >/dev/null 2>&1; then
-            if magisk --denylist add "$pkg" 2>/dev/null; then
+            local error_msg=$(magisk --denylist add "$pkg" 2>&1)
+            local exit_code=$?
+            if [ $exit_code -eq 0 ]; then
                 echo -e "${GREEN}  ✓ 添加成功${NC}"
                 return 0
             else
                 echo -e "${RED}  ✗ 添加失败${NC}"
+                if [ -n "$error_msg" ]; then
+                    echo -e "${YELLOW}    错误信息: $error_msg${NC}"
+                fi
                 return 1
             fi
         else
@@ -575,7 +589,7 @@ menu_option_2() {
             "Magisk")
                 if [ -n "$root_version" ]; then
                     local ver_num=$(echo "$root_version" | grep -oE '[0-9]+' | head -1)
-                    if [ -n "$ver_num" ] && [ "$ver_num" -ge 24 ]; then
+                    if [ -n "$ver_num" ] && [ "$ver_num" -ge "$MAGISK_MIN_ZYGISK_VERSION" ]; then
                         echo -e "${GREEN}推荐方案：Zygisk + Shamiko${NC}"
                         echo "  1. 启用 Zygisk（Magisk设置 → Zygisk）"
                         echo "  2. 下载并安装 Shamiko 模块"
