@@ -1,0 +1,65 @@
+name: Build Protected Binary
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shc
+          
+      - name: Obfuscate script
+        run: |
+          chmod +x tools/obfuscate.sh
+          cp dele.sh dele_temp.sh
+          ./tools/obfuscate.sh dele_temp.sh dele_obfuscated.sh
+          
+      - name: Compile to binary
+        run: |
+          # 使用 shc 编译
+          shc -f dele_obfuscated.sh -o dele-arm64 -r
+          
+          # 清理临时文件
+          rm -f dele_temp.sh dele_obfuscated.sh dele_obfuscated.sh.x.c
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dele-arm64-binary
+          path: dele-arm64
+          
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dele-arm64
+          body: |
+            ## 三角洲痕迹清理工具 - 编译版
+            
+            ### 使用方法
+            ```bash
+            # 下载后赋予执行权限
+            chmod +x dele-arm64
+            
+            # 以 Root 权限运行
+            su -c ./dele-arm64
+            ```
+            
+            ### 注意事项
+            - 需要 Root 权限
+            - 支持 ARM64 设备
+            - 已通过混淆和编译保护源码
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,7 @@
+# 编译输出
+build/
+*.x.c
+
+# 临时文件
+*_temp.sh
+*_obfuscated.sh
