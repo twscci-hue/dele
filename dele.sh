@@ -294,6 +294,10 @@ show_menu() {
     echo -e "      ${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
     echo ""
     
+    echo -e "  ${YELLOW}[6]${NC} ${GREEN}Root 环境隐藏方案${NC}"
+    echo -e "      ${BLUE}检测Root环境并给出隐藏方案建议${NC}"
+    echo ""
+    
     echo -e "  ${YELLOW}[0]${NC} ${PURPLE}退出工具${NC}"
     echo ""
     echo "================================================"
@@ -1493,6 +1497,370 @@ menu_option_5() {
     read dummy
 }
 
+menu_option_6() {
+    echo -e "${YELLOW}[6] Root 环境隐藏方案${NC}"
+    echo -e "${BLUE}检测Root环境并给出隐藏方案建议${NC}"
+    echo ""
+    
+    # 目标应用包名
+    TARGET_APP="com.tencent.tmgp.dfm"
+    TARGET_APP_NAME="三角洲行动"
+    
+    echo -e "${CYAN}[检测] 正在检测 Root 环境...${NC}"
+    echo ""
+    
+    # 变量初始化
+    ROOT_TYPE=""
+    ROOT_VERSION=""
+    ZYGISK_STATUS="未检测到"
+    MAGISK_VERSION=""
+    HIDE_MODULES=""
+    
+    # 1. 检测 Magisk 官方版
+    echo -e "${CYAN}[1] 检测 Magisk 官方版...${NC}"
+    if pm list packages 2>/dev/null | grep -q "com.topjohnwu.magisk"; then
+        ROOT_TYPE="Magisk 官方版"
+        echo -e "${GREEN}[√] 检测到 Magisk 官方版${NC}"
+        
+        # 获取 Magisk 版本
+        if command -v magisk >/dev/null 2>&1; then
+            MAGISK_VERSION=$(magisk --version 2>/dev/null | head -n1)
+            if [ -n "$MAGISK_VERSION" ]; then
+                ROOT_VERSION="$MAGISK_VERSION"
+                echo -e "${GREEN}    版本: $MAGISK_VERSION${NC}"
+            fi
+        fi
+        
+        # 检测 Zygisk 状态
+        if [ -f "/data/adb/magisk/config" ]; then
+            if grep -q "zygisk=1" /data/adb/magisk/config 2>/dev/null; then
+                ZYGISK_STATUS="已启用"
+                echo -e "${GREEN}    Zygisk 状态: 已启用${NC}"
+            else
+                ZYGISK_STATUS="未启用"
+                echo -e "${YELLOW}    Zygisk 状态: 未启用${NC}"
+            fi
+        elif [ -f "/data/adb/magisk.db" ]; then
+            # 尝试从数据库读取
+            if grep -q "zygisk" /data/adb/magisk.db 2>/dev/null; then
+                ZYGISK_STATUS="可能已启用"
+                echo -e "${YELLOW}    Zygisk 状态: 可能已启用${NC}"
+            fi
+        fi
+    else
+        echo -e "${BLUE}[*] 未检测到 Magisk 官方版${NC}"
+    fi
+    echo ""
+    
+    # 2. 检测 Magisk Alpha/Delta
+    echo -e "${CYAN}[2] 检测 Magisk Alpha/Delta...${NC}"
+    if pm list packages 2>/dev/null | grep -q "io.github.vvb2060.magisk"; then
+        if [ -z "$ROOT_TYPE" ]; then
+            ROOT_TYPE="Magisk Alpha/Delta"
+        else
+            ROOT_TYPE="$ROOT_TYPE + Magisk Alpha/Delta"
+        fi
+        echo -e "${GREEN}[√] 检测到 Magisk Alpha/Delta${NC}"
+        
+        # 尝试获取版本
+        if command -v magisk >/dev/null 2>&1 && [ -z "$MAGISK_VERSION" ]; then
+            MAGISK_VERSION=$(magisk --version 2>/dev/null | head -n1)
+            if [ -n "$MAGISK_VERSION" ]; then
+                ROOT_VERSION="$MAGISK_VERSION"
+                echo -e "${GREEN}    版本: $MAGISK_VERSION${NC}"
+            fi
+        fi
+    else
+        echo -e "${BLUE}[*] 未检测到 Magisk Alpha/Delta${NC}"
+    fi
+    echo ""
+    
+    # 3. 检测 KernelSU
+    echo -e "${CYAN}[3] 检测 KernelSU...${NC}"
+    KERNELSU_DETECTED=0
+    if pm list packages 2>/dev/null | grep -q "com.sukisu.ultra"; then
+        KERNELSU_DETECTED=1
+    elif [ -d "/data/adb/ksu" ]; then
+        KERNELSU_DETECTED=1
+    fi
+    
+    if [ $KERNELSU_DETECTED -eq 1 ]; then
+        if [ -z "$ROOT_TYPE" ]; then
+            ROOT_TYPE="KernelSU"
+        else
+            ROOT_TYPE="$ROOT_TYPE + KernelSU"
+        fi
+        echo -e "${GREEN}[√] 检测到 KernelSU${NC}"
+        
+        # 尝试获取 KernelSU 版本
+        if command -v ksud >/dev/null 2>&1; then
+            KSU_VERSION=$(ksud -V 2>/dev/null | head -n1)
+            if [ -n "$KSU_VERSION" ]; then
+                ROOT_VERSION="$KSU_VERSION"
+                echo -e "${GREEN}    版本: $KSU_VERSION${NC}"
+            fi
+        fi
+    else
+        echo -e "${BLUE}[*] 未检测到 KernelSU${NC}"
+    fi
+    echo ""
+    
+    # 4. 检测 APatch
+    echo -e "${CYAN}[4] 检测 APatch...${NC}"
+    if [ -d "/data/adb/ap" ]; then
+        if [ -z "$ROOT_TYPE" ]; then
+            ROOT_TYPE="APatch"
+        else
+            ROOT_TYPE="$ROOT_TYPE + APatch"
+        fi
+        echo -e "${GREEN}[√] 检测到 APatch${NC}"
+        
+        # 尝试获取 APatch 版本
+        if [ -f "/data/adb/ap/version" ]; then
+            APATCH_VERSION=$(cat /data/adb/ap/version 2>/dev/null)
+            if [ -n "$APATCH_VERSION" ]; then
+                ROOT_VERSION="$APATCH_VERSION"
+                echo -e "${GREEN}    版本: $APATCH_VERSION${NC}"
+            fi
+        fi
+    else
+        echo -e "${BLUE}[*] 未检测到 APatch${NC}"
+    fi
+    echo ""
+    
+    # 5. 检测隐藏模块
+    echo -e "${CYAN}[5] 检测隐藏模块...${NC}"
+    if [ -d "/data/adb/modules" ]; then
+        # 检测 Shamiko
+        if [ -d "/data/adb/modules/zygisk_shamiko" ] || [ -d "/data/adb/modules/shamiko" ]; then
+            HIDE_MODULES="${HIDE_MODULES}Shamiko, "
+            echo -e "${GREEN}    [√] Shamiko 模块${NC}"
+        fi
+        
+        # 检测 Hide My Applist
+        if [ -d "/data/adb/modules/hide_my_applist" ]; then
+            HIDE_MODULES="${HIDE_MODULES}Hide My Applist, "
+            echo -e "${GREEN}    [√] Hide My Applist 模块${NC}"
+        fi
+        
+        # 检测 Zygisk Next
+        if [ -d "/data/adb/modules/zygisk_next" ]; then
+            HIDE_MODULES="${HIDE_MODULES}Zygisk Next, "
+            echo -e "${GREEN}    [√] Zygisk Next 模块${NC}"
+        fi
+        
+        # 清理最后的逗号和空格
+        HIDE_MODULES=$(echo "$HIDE_MODULES" | sed 's/, $//')
+        
+        if [ -z "$HIDE_MODULES" ]; then
+            echo -e "${YELLOW}    [*] 未检测到已知隐藏模块${NC}"
+        fi
+    else
+        echo -e "${BLUE}    [*] 未找到模块目录${NC}"
+    fi
+    echo ""
+    
+    # 6. 检测目标应用是否已添加到隐藏列表
+    echo -e "${CYAN}[6] 检测目标应用隐藏状态...${NC}"
+    echo -e "${BLUE}    目标应用: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
+    
+    APP_IN_HIDE_LIST=0
+    # 检查 Magisk 的 denylist (Magisk 24.0+)
+    if [ -f "/data/adb/magisk.db" ]; then
+        if grep -q "$TARGET_APP" /data/adb/magisk.db 2>/dev/null; then
+            APP_IN_HIDE_LIST=1
+            echo -e "${GREEN}    [√] 已添加到 Magisk Denylist${NC}"
+        fi
+    fi
+    
+    # 检查 Shamiko 配置
+    if [ -f "/data/adb/shamiko/shamiko.json" ]; then
+        if grep -q "$TARGET_APP" /data/adb/shamiko/shamiko.json 2>/dev/null; then
+            APP_IN_HIDE_LIST=1
+            echo -e "${GREEN}    [√] 已添加到 Shamiko 配置${NC}"
+        fi
+    fi
+    
+    if [ $APP_IN_HIDE_LIST -eq 0 ]; then
+        echo -e "${YELLOW}    [*] 未检测到目标应用在隐藏列表中${NC}"
+    fi
+    echo ""
+    
+    # 7. 显示检测总结
+    echo "========================================"
+    echo -e "${CYAN}检测总结${NC}"
+    echo "========================================"
+    if [ -z "$ROOT_TYPE" ]; then
+        echo -e "${YELLOW}Root 类型: 未检测到 Root${NC}"
+    else
+        echo -e "${GREEN}Root 类型: $ROOT_TYPE${NC}"
+    fi
+    
+    if [ -n "$ROOT_VERSION" ]; then
+        echo -e "${GREEN}Root 版本: $ROOT_VERSION${NC}"
+    fi
+    
+    echo -e "${CYAN}Zygisk 状态: $ZYGISK_STATUS${NC}"
+    
+    if [ -n "$HIDE_MODULES" ]; then
+        echo -e "${GREEN}已安装隐藏模块: $HIDE_MODULES${NC}"
+    else
+        echo -e "${YELLOW}已安装隐藏模块: 无${NC}"
+    fi
+    echo "========================================"
+    echo ""
+    
+    # 8. 根据检测结果给出隐藏方案建议
+    echo -e "${PURPLE}========================================"
+    echo -e "推荐隐藏方案"
+    echo -e "========================================${NC}"
+    echo ""
+    
+    if [ -z "$ROOT_TYPE" ]; then
+        echo -e "${YELLOW}[*] 未检测到 Root 环境，无需配置隐藏${NC}"
+    elif echo "$ROOT_TYPE" | grep -q "Magisk 官方版"; then
+        # Magisk 官方版的建议
+        if [ -n "$MAGISK_VERSION" ]; then
+            # 提取主版本号
+            MAJOR_VERSION=$(echo "$MAGISK_VERSION" | grep -oE '[0-9]+' | head -n1)
+            
+            if [ -n "$MAJOR_VERSION" ] && [ "$MAJOR_VERSION" -ge 24 ]; then
+                echo -e "${GREEN}【Magisk 24.0+ 隐藏方案】${NC}"
+                echo -e "${CYAN}1. 启用 Zygisk${NC}"
+                if [ "$ZYGISK_STATUS" = "已启用" ]; then
+                    echo -e "   ${GREEN}✓ Zygisk 已启用${NC}"
+                else
+                    echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                    echo -e "   ${YELLOW}• 进入设置 → 启用 Zygisk${NC}"
+                    echo -e "   ${YELLOW}• 重启设备${NC}"
+                fi
+                
+                echo ""
+                echo -e "${CYAN}2. 安装 Shamiko 模块${NC}"
+                if echo "$HIDE_MODULES" | grep -q "Shamiko"; then
+                    echo -e "   ${GREEN}✓ Shamiko 已安装${NC}"
+                else
+                    echo -e "   ${YELLOW}• 下载 Shamiko 模块 (LSPosed/Shamiko)${NC}"
+                    echo -e "   ${YELLOW}• 在 Magisk 中安装模块${NC}"
+                    echo -e "   ${YELLOW}• 重启设备${NC}"
+                fi
+                
+                echo ""
+                echo -e "${CYAN}3. 配置排除列表 (Denylist)${NC}"
+                echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                echo -e "   ${YELLOW}• 进入设置 → 启用配置排除列表${NC}"
+                echo -e "   ${YELLOW}• 进入配置排除列表${NC}"
+                echo -e "   ${YELLOW}• 添加: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
+                echo -e "   ${YELLOW}• 勾选所有进程${NC}"
+                
+            else
+                echo -e "${GREEN}【Magisk 23.x 及以下隐藏方案】${NC}"
+                echo -e "${CYAN}1. 启用 MagiskHide${NC}"
+                echo -e "   ${YELLOW}• 打开 Magisk 管理器${NC}"
+                echo -e "   ${YELLOW}• 进入设置 → 启用 MagiskHide${NC}"
+                
+                echo ""
+                echo -e "${CYAN}2. 添加目标应用${NC}"
+                echo -e "   ${YELLOW}• 进入 MagiskHide${NC}"
+                echo -e "   ${YELLOW}• 搜索并勾选: ${TARGET_APP_NAME} (${TARGET_APP})${NC}"
+                echo -e "   ${YELLOW}• 重启游戏${NC}"
+            fi
+        else
+            echo -e "${GREEN}【Magisk 通用隐藏方案】${NC}"
+            echo -e "${CYAN}请检查您的 Magisk 版本后选择对应方案${NC}"
+        fi
+        
+    elif echo "$ROOT_TYPE" | grep -q "Magisk Alpha\|Magisk Delta"; then
+        echo -e "${GREEN}【Magisk Delta/Alpha 隐藏方案】${NC}"
+        echo -e "${CYAN}1. 使用 SuList 白名单模式${NC}"
+        echo -e "   ${YELLOW}• 打开 Magisk Delta/Alpha 管理器${NC}"
+        echo -e "   ${YELLOW}• 进入设置 → 超级用户${NC}"
+        echo -e "   ${YELLOW}• 选择 SuList 模式为 '白名单'${NC}"
+        echo -e "   ${YELLOW}• 仅添加需要 Root 的应用到列表${NC}"
+        echo -e "   ${YELLOW}• 不要添加: ${TARGET_APP_NAME}${NC}"
+        
+        echo ""
+        echo -e "${CYAN}2. 启用 Zygisk 和 Denylist${NC}"
+        echo -e "   ${YELLOW}• 启用 Zygisk${NC}"
+        echo -e "   ${YELLOW}• 配置 Denylist 添加: ${TARGET_APP}${NC}"
+        
+        echo ""
+        echo -e "${CYAN}3. 安装 Shamiko 模块 (推荐)${NC}"
+        if echo "$HIDE_MODULES" | grep -q "Shamiko"; then
+            echo -e "   ${GREEN}✓ Shamiko 已安装${NC}"
+        else
+            echo -e "   ${YELLOW}• 安装 Shamiko 模块以增强隐藏效果${NC}"
+        fi
+        
+    elif echo "$ROOT_TYPE" | grep -q "KernelSU"; then
+        echo -e "${GREEN}【KernelSU 隐藏方案】${NC}"
+        echo -e "${CYAN}1. 使用内置隐藏功能${NC}"
+        echo -e "   ${YELLOW}• 打开 KernelSU 管理器${NC}"
+        echo -e "   ${YELLOW}• 进入超级用户页面${NC}"
+        echo -e "   ${YELLOW}• 不要授予 ${TARGET_APP_NAME} Root 权限${NC}"
+        
+        echo ""
+        echo -e "${CYAN}2. 配置模块白名单${NC}"
+        echo -e "   ${YELLOW}• 进入模块管理${NC}"
+        echo -e "   ${YELLOW}• 为每个模块配置白名单${NC}"
+        echo -e "   ${YELLOW}• 排除 ${TARGET_APP} 避免被模块影响${NC}"
+        
+        echo ""
+        echo -e "${CYAN}3. 安装 Zygisk Next (推荐)${NC}"
+        if echo "$HIDE_MODULES" | grep -q "Zygisk Next"; then
+            echo -e "   ${GREEN}✓ Zygisk Next 已安装${NC}"
+        else
+            echo -e "   ${YELLOW}• 下载 Zygisk Next 模块${NC}"
+            echo -e "   ${YELLOW}• 在 KernelSU 中安装${NC}"
+            echo -e "   ${YELLOW}• 配合 Shamiko 使用以增强隐藏${NC}"
+        fi
+        
+    elif echo "$ROOT_TYPE" | grep -q "APatch"; then
+        echo -e "${GREEN}【APatch 隐藏方案】${NC}"
+        echo -e "${CYAN}1. 使用 APatch 内置隐藏功能${NC}"
+        echo -e "   ${YELLOW}• 打开 APatch 管理器${NC}"
+        echo -e "   ${YELLOW}• 进入超级用户管理${NC}"
+        echo -e "   ${YELLOW}• 配置应用隐藏选项${NC}"
+        echo -e "   ${YELLOW}• 添加 ${TARGET_APP_NAME} 到隐藏列表${NC}"
+        
+        echo ""
+        echo -e "${CYAN}2. 配置模块过滤${NC}"
+        echo -e "   ${YELLOW}• 进入模块管理${NC}"
+        echo -e "   ${YELLOW}• 为模块配置应用过滤${NC}"
+        echo -e "   ${YELLOW}• 排除目标应用避免被检测${NC}"
+        
+    else
+        echo -e "${YELLOW}[*] 无法识别的 Root 类型，请手动配置隐藏${NC}"
+    fi
+    
+    echo ""
+    echo -e "${PURPLE}========================================"
+    echo -e "通用建议"
+    echo -e "========================================${NC}"
+    echo -e "${CYAN}1. 隐藏 Root 管理器应用本身${NC}"
+    echo -e "   ${YELLOW}• 使用管理器的隐藏功能重命名应用${NC}"
+    echo ""
+    echo -e "${CYAN}2. 安装 Hide My Applist (可选)${NC}"
+    if echo "$HIDE_MODULES" | grep -q "Hide My Applist"; then
+        echo -e "   ${GREEN}✓ Hide My Applist 已安装${NC}"
+        echo -e "   ${YELLOW}• 配置黑名单模式${NC}"
+        echo -e "   ${YELLOW}• 添加 ${TARGET_APP} 到黑名单${NC}"
+    else
+        echo -e "   ${YELLOW}• 这是一个高级隐藏工具${NC}"
+        echo -e "   ${YELLOW}• 可以隐藏已安装的应用列表${NC}"
+    fi
+    echo ""
+    echo -e "${CYAN}3. 清理痕迹${NC}"
+    echo -e "   ${YELLOW}• 使用本工具的其他选项清理游戏痕迹${NC}"
+    echo -e "   ${YELLOW}• 定期检查和更新隐藏配置${NC}"
+    echo ""
+    
+    echo -e "${CYAN}技术支持: $TECH_SUPPORT${NC}"
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
 # 处理用户输入
 handle_user_input() {
     local choice="$1"
@@ -1521,6 +1889,11 @@ handle_user_input() {
         5)
             show_header
             menu_option_5
+            INPUT_ERROR_COUNT=0  # 重置错误计数
+            ;;
+        6)
+            show_header
+            menu_option_6
             INPUT_ERROR_COUNT=0  # 重置错误计数
             ;;
         0)
@@ -1585,7 +1958,7 @@ main() {
                 show_header
                 show_menu
                 
-                echo -n "请输入选择 (0-5): "
+                echo -n "请输入选择 (0-6): "
                 read choice
                 
                 handle_user_input "$choice"
