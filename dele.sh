@@ -294,6 +294,10 @@ show_menu() {
     echo -e "      ${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
     echo ""
     
+    echo -e "  ${YELLOW}[6]${NC} ${GREEN}Root环境隐藏方案${NC}"
+    echo -e "      ${BLUE}检测Root环境并提供隐藏配置方案${NC}"
+    echo ""
+    
     echo -e "  ${YELLOW}[0]${NC} ${PURPLE}退出工具${NC}"
     echo ""
     echo "================================================"
@@ -1493,6 +1497,685 @@ menu_option_5() {
     read dummy
 }
 
+# Root环境检测函数
+detect_root_environment() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}       Root 环境检测${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    local root_type="未检测到Root"
+    local root_version=""
+    local zygisk_status="未启用"
+    local modules_installed=""
+    
+    # 检测 Magisk
+    if [ -d "/data/adb/magisk" ]; then
+        root_type="Magisk"
+        if command -v magisk >/dev/null 2>&1; then
+            root_version=$(magisk --version 2>/dev/null | head -n 1)
+        elif [ -f "/data/adb/magisk/util_functions.sh" ]; then
+            root_version=$(grep "MAGISK_VER=" /data/adb/magisk/util_functions.sh 2>/dev/null | head -n 1 | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+        fi
+        
+        # 检测 Zygisk 状态
+        if [ -f "/data/adb/magisk/config" ]; then
+            if grep -q "zygisk=true" /data/adb/magisk/config 2>/dev/null; then
+                zygisk_status="已启用"
+            fi
+        fi
+        
+    # 检测 KernelSU
+    elif [ -d "/data/adb/ksu" ] || [ -d "/data/adb/kernelsu" ]; then
+        root_type="KernelSU"
+        if command -v ksu >/dev/null 2>&1; then
+            root_version=$(ksu --version 2>/dev/null | head -n 1)
+        fi
+        
+    # 检测 APatch
+    elif [ -d "/data/adb/ap" ] || pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
+        root_type="APatch"
+        if pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
+            root_version=$(pm dump me.bmax.apatch 2>/dev/null | grep "versionName" | head -n 1 | awk '{print $1}' | cut -d'=' -f2)
+        fi
+    fi
+    
+    # 检测已安装的模块
+    if [ -d "/data/adb/modules" ]; then
+        modules_installed=$(ls -1 /data/adb/modules 2>/dev/null | grep -v "^lost+found$" | wc -l)
+    fi
+    
+    # 显示检测结果
+    echo -e "${YELLOW}[检测结果]${NC}"
+    echo ""
+    
+    if [ "$root_type" != "未检测到Root" ]; then
+        echo -e "  ${GREEN}[√]${NC} Root 类型: ${CYAN}$root_type${NC}"
+        if [ -n "$root_version" ]; then
+            echo -e "  ${GREEN}[√]${NC} Root 版本: ${CYAN}$root_version${NC}"
+        fi
+        
+        if [ "$root_type" = "Magisk" ]; then
+            echo -e "  ${GREEN}[√]${NC} Zygisk 状态: ${CYAN}$zygisk_status${NC}"
+        fi
+        
+        if [ -n "$modules_installed" ] && [ "$modules_installed" != "0" ]; then
+            echo -e "  ${GREEN}[√]${NC} 已安装模块数: ${CYAN}$modules_installed${NC}"
+        else
+            echo -e "  ${YELLOW}[×]${NC} 已安装模块数: ${YELLOW}0${NC}"
+        fi
+        
+        # 检测关键隐藏模块
+        echo ""
+        echo -e "${YELLOW}[关键隐藏模块检测]${NC}"
+        
+        # Shamiko
+        if [ -d "/data/adb/modules/zygisk_shamiko" ] || [ -d "/data/adb/modules/shamiko" ]; then
+            echo -e "  ${GREEN}[√]${NC} Shamiko: ${GREEN}已安装${NC}"
+        else
+            echo -e "  ${YELLOW}[×]${NC} Shamiko: ${YELLOW}未安装${NC}"
+        fi
+        
+        # Hide My Applist
+        if pm list packages | grep -q "com.tsng.hidemyapplist" 2>/dev/null; then
+            echo -e "  ${GREEN}[√]${NC} Hide My Applist: ${GREEN}已安装${NC}"
+        else
+            echo -e "  ${YELLOW}[×]${NC} Hide My Applist: ${YELLOW}未安装${NC}"
+        fi
+        
+        # PlayIntegrityFix
+        if [ -d "/data/adb/modules/playintegrityfix" ]; then
+            echo -e "  ${GREEN}[√]${NC} PlayIntegrityFix: ${GREEN}已安装${NC}"
+        else
+            echo -e "  ${YELLOW}[×]${NC} PlayIntegrityFix: ${YELLOW}未安装${NC}"
+        fi
+        
+        # Tricky Store
+        if [ -d "/data/adb/modules/tricky_store" ]; then
+            echo -e "  ${GREEN}[√]${NC} Tricky Store: ${GREEN}已安装${NC}"
+        else
+            echo -e "  ${YELLOW}[×]${NC} Tricky Store: ${YELLOW}未安装${NC}"
+        fi
+        
+    else
+        echo -e "  ${YELLOW}[×]${NC} Root 类型: ${YELLOW}未检测到Root环境${NC}"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# 显示隐藏方案
+show_hide_solutions() {
+    local root_type="$1"
+    
+    clear
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}       Root 环境隐藏方案${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    if [ "$root_type" = "Magisk" ]; then
+        echo -e "${GREEN}【终极隐藏组合】适用于 Magisk 26+${NC}"
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${YELLOW}必装模块：${NC}"
+        echo -e "  ${GREEN}✓${NC} Zygisk（内置，需在设置中启用）"
+        echo -e "  ${GREEN}✓${NC} Shamiko v1.0+ - 隐藏 Root 核心"
+        echo -e "  ${GREEN}✓${NC} Hide My Applist (HMAL) - 隐藏应用列表"
+        echo ""
+        echo -e "${YELLOW}推荐模块：${NC}"
+        echo -e "  ${BLUE}○${NC} PlayIntegrityFix - 通过 SafetyNet/Play Integrity"
+        echo -e "  ${BLUE}○${NC} Tricky Store - 密钥认证绕过"
+        echo -e "  ${BLUE}○${NC} LSPosed - 高级 Hook 框架"
+        echo ""
+        echo -e "${YELLOW}配置步骤：${NC}"
+        echo -e "  ${CYAN}1.${NC} Magisk 设置 → 启用 Zygisk"
+        echo -e "  ${CYAN}2.${NC} 安装 Shamiko，重启"
+        echo -e "  ${CYAN}3.${NC} 安装 HMAL，配置黑名单模式"
+        echo -e "  ${CYAN}4.${NC} 添加游戏到 Denylist"
+        echo -e "  ${CYAN}5.${NC} 在 HMAL 中隐藏 Magisk 相关应用"
+        
+    elif [ "$root_type" = "KernelSU" ]; then
+        echo -e "${GREEN}【KernelSU 隐藏组合】${NC}"
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${YELLOW}必装模块：${NC}"
+        echo -e "  ${GREEN}✓${NC} Zygisk Next - KSU 的 Zygisk 实现"
+        echo -e "  ${GREEN}✓${NC} Shamiko - 配合 Zygisk Next 使用"
+        echo -e "  ${GREEN}✓${NC} Hide My Applist"
+        echo ""
+        echo -e "${YELLOW}配置步骤：${NC}"
+        echo -e "  ${CYAN}1.${NC} KernelSU → 安装 Zygisk Next"
+        echo -e "  ${CYAN}2.${NC} 安装 Shamiko 模块"
+        echo -e "  ${CYAN}3.${NC} 配置应用管理，取消勾选游戏的 Root 权限"
+        echo -e "  ${CYAN}4.${NC} 在 HMAL 中隐藏 KSU Manager"
+        
+    elif [ "$root_type" = "APatch" ]; then
+        echo -e "${GREEN}【APatch 隐藏组合】${NC}"
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${YELLOW}必装模块：${NC}"
+        echo -e "  ${GREEN}✓${NC} Cherish Peekaboo - APatch 专用隐藏"
+        echo -e "  ${GREEN}✓${NC} 内置超级用户管理"
+        echo ""
+        echo -e "${YELLOW}配置步骤：${NC}"
+        echo -e "  ${CYAN}1.${NC} APatch → 超级用户 → 排除游戏应用"
+        echo -e "  ${CYAN}2.${NC} 安装 Cherish Peekaboo 模块"
+        echo -e "  ${CYAN}3.${NC} 配置应用隐藏列表"
+        
+    else
+        echo -e "${YELLOW}未检测到支持的 Root 环境${NC}"
+        echo ""
+        echo -e "请先安装以下任一 Root 方案："
+        echo -e "  • Magisk 26+"
+        echo -e "  • KernelSU"
+        echo -e "  • APatch"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# 一键配置隐藏
+one_click_configure() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}       一键配置隐藏环境${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}检测当前配置状态...${NC}"
+    echo ""
+    
+    local has_magisk=0
+    local has_zygisk=0
+    local has_shamiko=0
+    local has_hmal=0
+    local game_in_denylist=0
+    
+    # 检测 Magisk
+    if [ -d "/data/adb/magisk" ]; then
+        has_magisk=1
+        echo -e "  ${GREEN}[√]${NC} Magisk 已安装"
+        
+        # 检测 Zygisk
+        if [ -f "/data/adb/magisk/config" ]; then
+            if grep -q "zygisk=true" /data/adb/magisk/config 2>/dev/null; then
+                has_zygisk=1
+                echo -e "  ${GREEN}[√]${NC} Zygisk 已启用"
+            else
+                echo -e "  ${YELLOW}[×]${NC} Zygisk 未启用"
+            fi
+        fi
+        
+        # 检测 Shamiko
+        if [ -d "/data/adb/modules/zygisk_shamiko" ] || [ -d "/data/adb/modules/shamiko" ]; then
+            has_shamiko=1
+            echo -e "  ${GREEN}[√]${NC} Shamiko 已安装"
+        else
+            echo -e "  ${YELLOW}[×]${NC} Shamiko 未安装"
+        fi
+        
+        # 检测 Hide My Applist
+        if pm list packages | grep -q "com.tsng.hidemyapplist" 2>/dev/null; then
+            has_hmal=1
+            echo -e "  ${GREEN}[√]${NC} Hide My Applist 已安装"
+        else
+            echo -e "  ${YELLOW}[×]${NC} Hide My Applist 未安装"
+        fi
+        
+        # 检测三角洲是否在 Denylist
+        if magisk --denylist ls 2>/dev/null | grep -q "com.tencent.tmgp.dfm"; then
+            game_in_denylist=1
+            echo -e "  ${GREEN}[√]${NC} 三角洲行动 已添加到 Denylist"
+        else
+            echo -e "  ${YELLOW}[×]${NC} 三角洲行动 未添加到 Denylist"
+        fi
+    else
+        echo -e "  ${YELLOW}[×]${NC} Magisk 未安装"
+    fi
+    
+    echo ""
+    
+    if [ "$has_magisk" -eq 0 ]; then
+        echo -e "${RED}错误: 未检测到 Magisk，无法自动配置${NC}"
+        echo ""
+        return 1
+    fi
+    
+    echo -n "是否执行一键配置？(y/N): "
+    read confirm
+    
+    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+        echo ""
+        echo -e "${GREEN}开始自动配置...${NC}"
+        echo ""
+        
+        # 1. 添加游戏到 Denylist
+        if [ "$game_in_denylist" -eq 0 ]; then
+            echo -e "${CYAN}[1/4]${NC} 添加游戏到 Denylist..."
+            if magisk --denylist add com.tencent.tmgp.dfm 2>/dev/null; then
+                echo -e "  ${GREEN}[√]${NC} 三角洲行动已添加到 Denylist"
+            else
+                echo -e "  ${RED}[×]${NC} 添加失败，请手动在 Magisk 中配置"
+            fi
+        else
+            echo -e "${CYAN}[1/4]${NC} ${GREEN}游戏已在 Denylist 中${NC}"
+        fi
+        echo ""
+        
+        # 2. 配置 Shamiko
+        echo -e "${CYAN}[2/4]${NC} 配置 Shamiko..."
+        if [ "$has_shamiko" -eq 1 ]; then
+            echo -e "  ${GREEN}[√]${NC} Shamiko 已安装，无需额外配置"
+        else
+            echo -e "  ${YELLOW}[!]${NC} 请手动下载并安装 Shamiko 模块"
+        fi
+        echo ""
+        
+        # 3. 配置 HMAL
+        echo -e "${CYAN}[3/4]${NC} 配置 Hide My Applist..."
+        if [ "$has_hmal" -eq 1 ]; then
+            echo -e "  ${GREEN}[√]${NC} Hide My Applist 已安装"
+            echo -e "  ${YELLOW}[!]${NC} 请手动在 HMAL 中配置黑名单模式"
+            echo -e "  ${YELLOW}[!]${NC} 并对三角洲行动隐藏以下应用："
+            echo -e "      - Magisk Manager"
+            echo -e "      - 终端模拟器"
+            echo -e "      - Root 管理类应用"
+        else
+            echo -e "  ${YELLOW}[!]${NC} 请手动下载并安装 Hide My Applist"
+        fi
+        echo ""
+        
+        # 4. 清理 Root 痕迹
+        echo -e "${CYAN}[4/4]${NC} 清理 Root 痕迹..."
+        local cleaned=0
+        
+        if [ -f "/system/app/Superuser.apk" ]; then
+            rm -f /system/app/Superuser.apk 2>/dev/null && cleaned=1
+        fi
+        
+        if [ -f "/system/xbin/su" ] && [ ! -L "/system/xbin/su" ]; then
+            rm -f /system/xbin/su 2>/dev/null && cleaned=1
+        fi
+        
+        if [ -f "/data/local/tmp/su" ]; then
+            rm -f /data/local/tmp/su 2>/dev/null && cleaned=1
+        fi
+        
+        if [ "$cleaned" -eq 1 ]; then
+            echo -e "  ${GREEN}[√]${NC} 已清理部分 Root 痕迹"
+        else
+            echo -e "  ${GREEN}[√]${NC} 无需清理"
+        fi
+        echo ""
+        
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${GREEN}[完成] 隐藏配置已完成！${NC}"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${YELLOW}提示：${NC}"
+        echo -e "  1. 请重启设备以应用配置"
+        echo -e "  2. 如有模块未安装，请查看模块下载地址"
+        echo -e "  3. 建议配合三角洲专项配置使用"
+    else
+        echo -e "${BLUE}操作已取消${NC}"
+    fi
+}
+
+# 三角洲专项配置
+delta_force_config() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}    三角洲行动 Root 隐藏配置${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}目标：绕过 ACE 反作弊检测${NC}"
+    echo ""
+    
+    # 游戏包名定义
+    local GAME_DFM_CN="com.tencent.tmgp.dfm"
+    local GAME_DFM_TW="com.garena.game.codm"
+    local GAME_DFM_GL="com.activision.callofduty.shooter"
+    
+    # 检测已安装的三角洲版本
+    echo -e "${YELLOW}检测游戏版本...${NC}"
+    echo ""
+    
+    local game_installed=""
+    if pm list packages | grep -q "$GAME_DFM_CN" 2>/dev/null; then
+        game_installed="$GAME_DFM_CN"
+        echo -e "  ${GREEN}[√]${NC} 检测到: 三角洲行动 (国服)"
+    elif pm list packages | grep -q "$GAME_DFM_TW" 2>/dev/null; then
+        game_installed="$GAME_DFM_TW"
+        echo -e "  ${GREEN}[√]${NC} 检测到: Call of Duty Mobile (台服)"
+    elif pm list packages | grep -q "$GAME_DFM_GL" 2>/dev/null; then
+        game_installed="$GAME_DFM_GL"
+        echo -e "  ${GREEN}[√]${NC} 检测到: Call of Duty Mobile (国际服)"
+    else
+        echo -e "  ${YELLOW}[!]${NC} 未检测到三角洲行动相关游戏"
+        echo ""
+        return 1
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}必须配置项：${NC}"
+    echo ""
+    
+    # 1. 检查 Magisk Denylist
+    echo -e "${CYAN}[1/4]${NC} 检查 Magisk Denylist..."
+    if command -v magisk >/dev/null 2>&1; then
+        if magisk --denylist ls 2>/dev/null | grep -q "$game_installed"; then
+            echo -e "  ${GREEN}[√]${NC} 游戏已在 Denylist 中"
+        else
+            echo -e "  ${YELLOW}[!]${NC} 正在添加到 Denylist..."
+            if magisk --denylist add "$game_installed" 2>/dev/null; then
+                echo -e "  ${GREEN}[√]${NC} 添加成功"
+            else
+                echo -e "  ${RED}[×]${NC} 添加失败，请手动配置"
+            fi
+        fi
+    else
+        echo -e "  ${YELLOW}[!]${NC} 未检测到 Magisk"
+    fi
+    echo ""
+    
+    # 2. HMAL 配置提示
+    echo -e "${CYAN}[2/4]${NC} Hide My Applist 配置..."
+    if pm list packages | grep -q "com.tsng.hidemyapplist" 2>/dev/null; then
+        echo -e "  ${GREEN}[√]${NC} Hide My Applist 已安装"
+        echo -e "  ${YELLOW}[!]${NC} 请在 HMAL 中对三角洲行动隐藏："
+        echo -e "      - Magisk/KSU Manager"
+        echo -e "      - 终端模拟器 (Termux 等)"
+        echo -e "      - Root 管理类应用"
+        echo -e "      - 修改器/外挂类应用"
+    else
+        echo -e "  ${YELLOW}[!]${NC} Hide My Applist 未安装，建议安装"
+    fi
+    echo ""
+    
+    # 3. 系统特征隐藏
+    echo -e "${CYAN}[3/4]${NC} 系统特征隐藏..."
+    echo -e "  ${YELLOW}[!]${NC} 需要隐藏的特征："
+    echo -e "      ${GREEN}✓${NC} su 二进制文件"
+    echo -e "      ${GREEN}✓${NC} Magisk 相关文件"
+    echo -e "      ${GREEN}✓${NC} /data/adb 目录"
+    echo -e "      ${GREEN}✓${NC} Root 相关 props"
+    echo ""
+    
+    # 4. 高级配置建议
+    echo -e "${CYAN}[4/4]${NC} 高级配置建议..."
+    echo -e "  ${BLUE}○${NC} 启用 Shamiko 白名单模式"
+    echo -e "  ${BLUE}○${NC} 配置 Tricky Store 通过设备认证"
+    echo -e "  ${BLUE}○${NC} 清理游戏风控数据后再启动"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}[完成] 三角洲专项配置检查完成${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}建议：${NC}"
+    echo -e "  1. 重启设备后再启动游戏"
+    echo -e "  2. 首次启动前清理游戏数据"
+    echo -e "  3. 定期检查隐藏模块更新"
+}
+
+# Root 痕迹深度清理
+clean_root_traces() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}       Root 痕迹深度清理${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    echo -e "${RED}[警告] 此操作可能影响 Root 功能${NC}"
+    echo -e "${RED}建议在需要隐藏 Root 时使用${NC}"
+    echo ""
+    
+    echo -n "确定要清理 Root 痕迹吗？(y/N): "
+    read confirm
+    
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+        echo -e "${BLUE}操作已取消${NC}"
+        return 0
+    fi
+    
+    echo ""
+    echo -e "${GREEN}开始清理 Root 痕迹...${NC}"
+    echo ""
+    
+    # 1. 清理常见 Root 痕迹文件
+    echo -e "${CYAN}[1/5]${NC} 清理 Root 痕迹文件..."
+    local root_traces=(
+        "/system/app/Superuser.apk"
+        "/system/xbin/su"
+        "/system/bin/su"
+        "/data/local/tmp/su"
+        "/sbin/su"
+    )
+    
+    local cleaned_count=0
+    for file in "${root_traces[@]}"; do
+        if [ -f "$file" ] && [ ! -L "$file" ]; then
+            if rm -f "$file" 2>/dev/null; then
+                cleaned_count=$((cleaned_count + 1))
+                echo -e "  ${GREEN}[√]${NC} 已删除: $file"
+            fi
+        fi
+    done
+    
+    if [ "$cleaned_count" -eq 0 ]; then
+        echo -e "  ${GREEN}[√]${NC} 无需清理"
+    fi
+    echo ""
+    
+    # 2. 清理 Busybox 痕迹
+    echo -e "${CYAN}[2/5]${NC} 清理 Busybox 痕迹..."
+    if [ -d "/system/xbin" ]; then
+        local busybox_links=$(find /system/xbin -type l 2>/dev/null | wc -l)
+        if [ "$busybox_links" -gt 0 ]; then
+            echo -e "  ${YELLOW}[!]${NC} 检测到 $busybox_links 个可疑符号链接"
+        else
+            echo -e "  ${GREEN}[√]${NC} 未检测到异常"
+        fi
+    else
+        echo -e "  ${GREEN}[√]${NC} 目录不存在，无需清理"
+    fi
+    echo ""
+    
+    # 3. 清理 Xposed/LSPosed 痕迹
+    echo -e "${CYAN}[3/5]${NC} 清理 Hook 框架痕迹..."
+    local xposed_files=(
+        "/data/data/de.robv.android.xposed.installer"
+        "/system/framework/XposedBridge.jar"
+        "/data/adb/modules/xposed"
+    )
+    
+    local xposed_cleaned=0
+    for file in "${xposed_files[@]}"; do
+        if [ -e "$file" ]; then
+            if rm -rf "$file" 2>/dev/null; then
+                xposed_cleaned=$((xposed_cleaned + 1))
+                echo -e "  ${GREEN}[√]${NC} 已删除: $file"
+            fi
+        fi
+    done
+    
+    if [ "$xposed_cleaned" -eq 0 ]; then
+        echo -e "  ${GREEN}[√]${NC} 无 Xposed 痕迹"
+    fi
+    echo ""
+    
+    # 4. 重置 SELinux context
+    echo -e "${CYAN}[4/5]${NC} 修复 SELinux 上下文..."
+    if command -v restorecon >/dev/null 2>&1; then
+        restorecon -R /system 2>/dev/null
+        restorecon -R /data 2>/dev/null
+        echo -e "  ${GREEN}[√]${NC} SELinux 上下文已修复"
+    else
+        echo -e "  ${YELLOW}[!]${NC} restorecon 命令不可用"
+    fi
+    echo ""
+    
+    # 5. 清理日志中的 Root 记录
+    echo -e "${CYAN}[5/5]${NC} 清理系统日志..."
+    if [ -d "/data/tombstones" ]; then
+        rm -rf /data/tombstones/* 2>/dev/null
+        echo -e "  ${GREEN}[√]${NC} 已清理 tombstones"
+    fi
+    
+    if [ -d "/data/system/dropbox" ]; then
+        rm -rf /data/system/dropbox/* 2>/dev/null
+        echo -e "  ${GREEN}[√]${NC} 已清理 dropbox"
+    fi
+    
+    logcat -c 2>/dev/null
+    echo -e "  ${GREEN}[√]${NC} 已清理 logcat"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}[完成] Root 痕迹清理完成！${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}提示：${NC}"
+    echo -e "  1. 建议重启设备后生效"
+    echo -e "  2. 部分痕迹可能需要 Shamiko 等模块配合"
+}
+
+# 模块下载链接
+show_module_links() {
+    clear
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}       隐藏模块下载地址${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Shamiko】${NC}Root 隐藏核心"
+    echo -e "  ${BLUE}https://github.com/LSPosed/LSPosed.github.io/releases${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Hide My Applist】${NC}应用列表隐藏"
+    echo -e "  ${BLUE}https://github.com/Dr-TSNG/Hide-My-Applist/releases${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【PlayIntegrityFix】${NC}完整性修复"
+    echo -e "  ${BLUE}https://github.com/chiteroman/PlayIntegrityFix/releases${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Tricky Store】${NC}密钥认证绕过"
+    echo -e "  ${BLUE}https://github.com/5ec1cff/TrickyStore/releases${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Zygisk Next】${NC}KernelSU 专用"
+    echo -e "  ${BLUE}https://github.com/Dr-TSNG/ZygiskNext/releases${NC}"
+    echo ""
+    
+    echo -e "${GREEN}【Cherish Peekaboo】${NC}APatch 专用"
+    echo -e "  ${BLUE}https://github.com/kikacc/Cherish-Peekaboo/releases${NC}"
+    echo ""
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}提示：${NC}"
+    echo -e "  1. 请从官方 GitHub 下载模块"
+    echo -e "  2. 安装后需重启设备"
+    echo -e "  3. 不同 Root 方案需要不同模块"
+}
+
+# Root环境隐藏方案主菜单
+menu_option_6() {
+    while true; do
+        clear
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${CYAN}       Root 环境隐藏方案${NC}"
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -e "${CYAN}请选择操作:${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[1]${NC} 检测 Root 环境"
+        echo -e "      ${BLUE}检测当前 Root 类型、版本和已安装模块${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[2]${NC} 查看隐藏方案"
+        echo -e "      ${BLUE}根据 Root 类型显示推荐的模块搭配组合${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[3]${NC} 一键配置隐藏"
+        echo -e "      ${BLUE}自动添加游戏到隐藏列表，配置已安装模块${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[4]${NC} 三角洲专项配置"
+        echo -e "      ${BLUE}针对三角洲行动的 ACE 反作弊隐藏配置${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[5]${NC} Root 痕迹清理"
+        echo -e "      ${BLUE}深度清理 Root 相关痕迹文件${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[6]${NC} 模块下载地址"
+        echo -e "      ${BLUE}显示所有隐藏模块的下载链接${NC}"
+        echo ""
+        echo -e "  ${YELLOW}[0]${NC} 返回主菜单"
+        echo ""
+        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        echo -n "请输入选择 (0-6): "
+        read sub_choice
+        
+        case $sub_choice in
+            1)
+                clear
+                detect_root_environment
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            2)
+                # 先检测 Root 类型
+                local root_type="未检测到Root"
+                if [ -d "/data/adb/magisk" ]; then
+                    root_type="Magisk"
+                elif [ -d "/data/adb/ksu" ] || [ -d "/data/adb/kernelsu" ]; then
+                    root_type="KernelSU"
+                elif [ -d "/data/adb/ap" ] || pm list packages | grep -q "me.bmax.apatch" 2>/dev/null; then
+                    root_type="APatch"
+                fi
+                show_hide_solutions "$root_type"
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            3)
+                clear
+                one_click_configure
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            4)
+                clear
+                delta_force_config
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            5)
+                clear
+                clean_root_traces
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            6)
+                show_module_links
+                echo ""
+                echo -n "按回车键继续... "
+                read dummy
+                ;;
+            0)
+                return 0
+                ;;
+            *)
+                echo -e "${RED}无效选择，请重新输入${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 # 处理用户输入
 handle_user_input() {
     local choice="$1"
@@ -1521,6 +2204,11 @@ handle_user_input() {
         5)
             show_header
             menu_option_5
+            INPUT_ERROR_COUNT=0  # 重置错误计数
+            ;;
+        6)
+            show_header
+            menu_option_6
             INPUT_ERROR_COUNT=0  # 重置错误计数
             ;;
         0)
@@ -1585,7 +2273,7 @@ main() {
                 show_header
                 show_menu
                 
-                echo -n "请输入选择 (0-5): "
+                echo -n "请输入选择 (0-6): "
                 read choice
                 
                 handle_user_input "$choice"
