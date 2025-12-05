@@ -8,6 +8,32 @@ CURRENT_VERSION="1.0.0"
 VERSION_CHECK_URL="https://gitee.com/yourname/yourrepo/raw/master/version.txt"
 TECH_SUPPORT="@闲鱼:WuTa"
 
+# 游戏包名配置
+# 三角洲行动
+GAME_DELTA_CN="com.tencent.tmgp.dfm"          # 国服
+GAME_DELTA_TW="com.garena.game.codm"          # 台服
+GAME_DELTA_GLOBAL="com.activision.callofduty.shooter"  # 国际服
+
+# 王者荣耀
+GAME_HONOR_CN="com.tencent.tmgp.sgame"        # 国服
+GAME_HONOR_TW="tw.txwy.and.kog"               # 台服
+GAME_HONOR_GLOBAL="com.ngame.allstar.eu"      # 国际服(AOV)
+
+# 和平精英
+GAME_PUBG_CN="com.tencent.tmgp.pubgmhd"       # 国服
+GAME_PUBG_TW="com.vng.pubgmobile"             # 台服
+GAME_PUBG_GLOBAL="com.tencent.ig"             # 国际服(PUBG Mobile)
+
+# 智能清理关键词配置
+# 高风险目录关键词（风控相关，必须清理）
+HIGH_RISK_KEYWORDS="turing qimei beacon ano_tmp apm hawk jwt_token itop_login turingdfp turingfd crash"
+
+# 缓存关键词列表（建议清理）
+CACHE_KEYWORDS="cache tbs webview tmp temp log dex odex textures crashrecord crashsight"
+
+# SDK关键词列表（可选清理）
+SDK_KEYWORDS="midas msdk gcloud gvoice"
+
 # 颜色定义
 RED='\033[1;31m'
 GREEN='\033[1;32m'
@@ -245,6 +271,155 @@ check_version() {
     return 0
 }
 
+# 智能判断目录是否需要清理
+should_clean_dir() {
+    local dir_name="$1"
+    local dir_lower=$(echo "$dir_name" | tr 'A-Z' 'a-z')
+    
+    # 检查高风险关键词
+    for keyword in $HIGH_RISK_KEYWORDS; do
+        if echo "$dir_lower" | grep -q "$keyword"; then
+            return 0  # 需要清理
+        fi
+    done
+    
+    # 检查缓存关键词
+    for keyword in $CACHE_KEYWORDS; do
+        if echo "$dir_lower" | grep -q "$keyword"; then
+            return 0  # 需要清理
+        fi
+    done
+    
+    # 检查SDK关键词
+    for keyword in $SDK_KEYWORDS; do
+        if echo "$dir_lower" | grep -q "$keyword"; then
+            return 0  # 需要清理
+        fi
+    done
+    
+    return 1  # 不需要清理
+}
+
+# 智能扫描并清理游戏数据
+smart_clean_game() {
+    local pkg="$1"
+    local game_name="$2"
+    local base="/data/data/$pkg"
+    local sdcard_dir="/storage/emulated/0/Android/data/$pkg"
+    
+    # 检查目录是否存在
+    if [ ! -d "$base" ]; then
+        echo -e "${YELLOW}[!] 游戏未安装: $game_name ($pkg)${NC}"
+        return 1
+    fi
+    
+    echo -e "${CYAN}[开始] 智能清理: $game_name${NC}"
+    echo -e "${BLUE}扫描目录: $base${NC}"
+    
+    local cleaned_count=0
+    
+    # 扫描并清理 app_* 目录
+    for dir in "$base"/app_*; do
+        if [ -d "$dir" ]; then
+            dir_name=$(basename "$dir")
+            if should_clean_dir "$dir_name"; then
+                echo -e "${GREEN}  [√] 清理: $dir_name${NC}"
+                rm -rf "$dir"
+                cleaned_count=$((cleaned_count + 1))
+            fi
+        fi
+    done
+    
+    # 扫描并清理 files 子目录
+    if [ -d "$base/files" ]; then
+        for item in "$base/files"/*; do
+            if [ -e "$item" ]; then
+                item_name=$(basename "$item")
+                if should_clean_dir "$item_name"; then
+                    echo -e "${GREEN}  [√] 清理: files/$item_name${NC}"
+                    rm -rf "$item"
+                    cleaned_count=$((cleaned_count + 1))
+                fi
+            fi
+        done
+    fi
+    
+    # 清理固定的通用目录
+    if [ -d "$base/cache" ]; then
+        echo -e "${GREEN}  [√] 清理: cache${NC}"
+        rm -rf "$base/cache"
+        cleaned_count=$((cleaned_count + 1))
+    fi
+    
+    if [ -d "$base/code_cache" ]; then
+        echo -e "${GREEN}  [√] 清理: code_cache${NC}"
+        rm -rf "$base/code_cache"
+        cleaned_count=$((cleaned_count + 1))
+    fi
+    
+    if [ -d "$base/databases" ]; then
+        echo -e "${GREEN}  [√] 清理: databases${NC}"
+        rm -rf "$base/databases"
+        cleaned_count=$((cleaned_count + 1))
+    fi
+    
+    if [ -d "$base/shared_prefs" ]; then
+        echo -e "${GREEN}  [√] 清理: shared_prefs${NC}"
+        rm -rf "$base/shared_prefs"
+        cleaned_count=$((cleaned_count + 1))
+    fi
+    
+    # 清理外部存储
+    if [ -d "$sdcard_dir" ]; then
+        echo -e "${GREEN}  [√] 清理: 外部存储数据${NC}"
+        rm -rf "$sdcard_dir/files"
+        rm -rf "$sdcard_dir/cache"
+        cleaned_count=$((cleaned_count + 1))
+    fi
+    
+    echo -e "${GREEN}[完成] $game_name 清理完成，共清理 $cleaned_count 项${NC}"
+    echo ""
+    return 0
+}
+
+# 检测已安装的游戏
+detect_installed_games() {
+    local -A games
+    
+    # 三角洲行动
+    pm list packages | grep -q "$GAME_DELTA_CN" 2>/dev/null && games["delta_cn"]="1"
+    pm list packages | grep -q "$GAME_DELTA_TW" 2>/dev/null && games["delta_tw"]="1"
+    pm list packages | grep -q "$GAME_DELTA_GLOBAL" 2>/dev/null && games["delta_global"]="1"
+    
+    # 王者荣耀
+    pm list packages | grep -q "$GAME_HONOR_CN" 2>/dev/null && games["honor_cn"]="1"
+    pm list packages | grep -q "$GAME_HONOR_TW" 2>/dev/null && games["honor_tw"]="1"
+    pm list packages | grep -q "$GAME_HONOR_GLOBAL" 2>/dev/null && games["honor_global"]="1"
+    
+    # 和平精英
+    pm list packages | grep -q "$GAME_PUBG_CN" 2>/dev/null && games["pubg_cn"]="1"
+    pm list packages | grep -q "$GAME_PUBG_TW" 2>/dev/null && games["pubg_tw"]="1"
+    pm list packages | grep -q "$GAME_PUBG_GLOBAL" 2>/dev/null && games["pubg_global"]="1"
+    
+    # 返回结果（通过echo，因为bash不支持返回关联数组）
+    for key in "${!games[@]}"; do
+        echo "$key"
+    done
+}
+
+# 获取所有游戏包名列表
+get_all_game_packages() {
+    echo "$GAME_DELTA_CN|三角洲行动(国服)"
+    echo "$GAME_DELTA_TW|三角洲行动(台服)"
+    echo "$GAME_DELTA_GLOBAL|三角洲行动(国际服)"
+    echo "$GAME_HONOR_CN|王者荣耀(国服)"
+    echo "$GAME_HONOR_TW|王者荣耀(台服)"
+    echo "$GAME_HONOR_GLOBAL|王者荣耀(国际服AOV)"
+    echo "$GAME_PUBG_CN|和平精英(国服)"
+    echo "$GAME_PUBG_TW|和平精英(台服)"
+    echo "$GAME_PUBG_GLOBAL|和平精英(国际服PUBG Mobile)"
+}
+
 # 显示UI头部
 show_header() {
     clear
@@ -294,6 +469,10 @@ show_menu() {
     echo -e "      ${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
     echo ""
     
+    echo -e "  ${YELLOW}[6]${NC} ${GREEN}多游戏智能清理${NC}"
+    echo -e "      ${BLUE}智能识别并清理多款腾讯游戏数据${NC}"
+    echo ""
+    
     echo -e "  ${YELLOW}[0]${NC} ${PURPLE}退出工具${NC}"
     echo ""
     echo "================================================"
@@ -309,8 +488,6 @@ menu_option_1() {
     echo -e "${BLUE}检测风险文件和监控痕迹${NC}"
     echo ""
 
-    DIR="/data/user/0/com.tencent.tmgp.dfm/files/ano_tmp"
-
     explain() {
         case "$1" in
             a_v)  echo "环境监测" ;;
@@ -321,53 +498,74 @@ menu_option_1() {
         esac
     }
 
-    # 检查目录是否存在
-    if [ ! -d "$DIR" ]; then
-        echo -e "${YELLOW}[!] 目录不存在: $DIR${NC}"
-        echo -e "${GREEN}[√] 无下发文件${NC}"
-        echo -n "按回车键继续... "
-        read dummy
-        return
-    fi
-
-    # 获取所有 .data 文件
-    files=$(find "$DIR" -type f | grep -i "\.data$")
-    total=$(echo "$files" | grep -c .)
-
-    if [ "$total" -eq 0 ]; then
-        echo -e "${GREEN}[√] 无下发文件${NC}"
-        echo -n "按回车键继续... "
-        read dummy
-        return
-    fi
-
-    matched_files=""
-    count=0
-
-    echo -n "处理进度："
-    IFS='
-'
-    for file in $files; do
-        count=$((count + 1))
-        filename=$(basename "$file")
-        lower=$(echo "$filename" | tr 'A-Z' 'a-z')
-
-        for key in a_v a_cd a_h a_s a_r; do
-            if echo "$lower" | grep -q "$key"; then
-                matched_files="$matched_files$filename ($(explain $key))"$'\n'
-                break
-            fi
-        done
-        echo -n "➤"
-    done
-    unset IFS
-
+    local total_found=0
+    local games_checked=0
+    
+    # 检测所有已安装的游戏
+    echo -e "${CYAN}正在扫描已安装游戏...${NC}"
     echo ""
-    if [ -z "$matched_files" ]; then
-        echo -e "${GREEN}[√] 未发现已知类型下发文件${NC}"
+    
+    # 遍历所有游戏包名
+    while IFS='|' read -r pkg game_name; do
+        # 检查游戏是否安装
+        if ! pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+            continue
+        fi
+        
+        games_checked=$((games_checked + 1))
+        DIR="/data/data/$pkg/files/ano_tmp"
+        
+        echo -e "${BLUE}检测游戏: $game_name${NC}"
+        
+        # 检查目录是否存在
+        if [ ! -d "$DIR" ]; then
+            echo -e "${GREEN}  [√] 无下发文件目录${NC}"
+            echo ""
+            continue
+        fi
+
+        # 获取所有 .data 文件
+        files=$(find "$DIR" -type f 2>/dev/null | grep -i "\.data$")
+        
+        if [ -z "$files" ]; then
+            echo -e "${GREEN}  [√] 无下发文件${NC}"
+            echo ""
+            continue
+        fi
+        
+        local count=$(echo "$files" | grep -c .)
+        matched_files=""
+        
+        IFS='
+'
+        for file in $files; do
+            filename=$(basename "$file")
+            lower=$(echo "$filename" | tr 'A-Z' 'a-z')
+
+            for key in a_v a_cd a_h a_s a_r; do
+                if echo "$lower" | grep -q "$key"; then
+                    matched_files="$matched_files  - $filename ($(explain $key))"$'\n'
+                    total_found=$((total_found + 1))
+                    break
+                fi
+            done
+        done
+        unset IFS
+
+        if [ -z "$matched_files" ]; then
+            echo -e "${GREEN}  [√] 未发现已知类型下发文件${NC}"
+        else
+            echo -e "${RED}  [!] 发现下发文件:${NC}"
+            echo "$matched_files"
+        fi
+        echo ""
+        
+    done < <(get_all_game_packages)
+    
+    if [ $games_checked -eq 0 ]; then
+        echo -e "${YELLOW}[!] 未检测到支持的游戏安装${NC}"
     else
-        echo -e "${GREEN}[√] 下发文件检测完成，已发现以下文件:${NC}"
-        echo "$matched_files"
+        echo -e "${CYAN}检测完成: 共检测 $games_checked 款游戏，发现 $total_found 个下发文件${NC}"
     fi
 
     echo ""
@@ -1458,6 +1656,119 @@ menu_option_4() {
     read dummy
 }
 
+menu_option_6() {
+    echo -e "${CYAN}===== 多游戏智能清理 =====${NC}"
+    echo ""
+    
+    # 检测已安装的游戏
+    local game_list=()
+    local game_names=()
+    local game_packages=()
+    local index=1
+    
+    echo -e "${YELLOW}正在检测已安装游戏...${NC}"
+    echo ""
+    
+    # 遍历所有游戏
+    while IFS='|' read -r pkg game_name; do
+        if pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+            game_list+=("$index")
+            game_names+=("$game_name")
+            game_packages+=("$pkg")
+            echo -e "  ${GREEN}[${index}] ✓ $game_name${NC}"
+            echo -e "      ${BLUE}$pkg${NC}"
+            index=$((index + 1))
+        fi
+    done < <(get_all_game_packages)
+    
+    # 显示未安装的游戏（前3个作为示例）
+    local uninstalled_count=0
+    while IFS='|' read -r pkg game_name; do
+        if ! pm list packages | grep -q "^package:$pkg$" 2>/dev/null; then
+            if [ $uninstalled_count -lt 3 ]; then
+                echo -e "  ${YELLOW}[X] ✗ $game_name - 未安装${NC}"
+                uninstalled_count=$((uninstalled_count + 1))
+            fi
+        fi
+    done < <(get_all_game_packages)
+    
+    echo ""
+    
+    if [ ${#game_list[@]} -eq 0 ]; then
+        echo -e "${YELLOW}[!] 未检测到支持的游戏安装${NC}"
+        echo ""
+        echo -n "按回车键返回主菜单... "
+        read dummy
+        return
+    fi
+    
+    echo -e "  ${GREEN}[A]${NC} 清理全部已安装游戏"
+    echo -e "  ${PURPLE}[0]${NC} 返回主菜单"
+    echo ""
+    echo "================================================"
+    echo -e "${RED}操作有风险！请谨慎清理，数据丢失后果自负。${NC}"
+    echo "================================================"
+    echo ""
+    
+    echo -n "请选择要清理的游戏 (输入序号/A/0): "
+    read choice
+    
+    case "$choice" in
+        0)
+            return
+            ;;
+        [aA])
+            echo ""
+            echo -e "${RED}[警告] 即将清理所有已安装游戏的数据${NC}"
+            echo -n "确定要继续吗? (y/N): "
+            read confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                echo ""
+                echo -e "${YELLOW}开始清理全部游戏...${NC}"
+                echo ""
+                for i in "${!game_packages[@]}"; do
+                    smart_clean_game "${game_packages[$i]}" "${game_names[$i]}"
+                done
+                echo -e "${GREEN}[√] 全部游戏清理完成${NC}"
+            else
+                echo -e "${BLUE}[*] 操作已取消${NC}"
+            fi
+            ;;
+        [1-9]*)
+            # 检查输入的序号是否有效
+            local valid=0
+            for i in "${!game_list[@]}"; do
+                if [ "$choice" = "${game_list[$i]}" ]; then
+                    valid=1
+                    echo ""
+                    echo -e "${RED}[警告] 即将清理 ${game_names[$i]} 的数据${NC}"
+                    echo -n "确定要继续吗? (y/N): "
+                    read confirm
+                    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                        echo ""
+                        smart_clean_game "${game_packages[$i]}" "${game_names[$i]}"
+                        echo -e "${GREEN}[√] 游戏清理完成${NC}"
+                    else
+                        echo -e "${BLUE}[*] 操作已取消${NC}"
+                    fi
+                    break
+                fi
+            done
+            
+            if [ $valid -eq 0 ]; then
+                echo -e "${RED}[!] 无效的选择${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${RED}[!] 无效的选择${NC}"
+            ;;
+    esac
+    
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
 menu_option_5() {
     echo -e "${RED}[5] 全维度核心清理${NC}"
     echo -e "${BLUE}一键执行清理和标识变更(选项3+4)${NC}"
@@ -1523,6 +1834,11 @@ handle_user_input() {
             menu_option_5
             INPUT_ERROR_COUNT=0  # 重置错误计数
             ;;
+        6)
+            show_header
+            menu_option_6
+            INPUT_ERROR_COUNT=0  # 重置错误计数
+            ;;
         0)
             echo -e "${PURPLE}退出三角洲痕迹清理工具...${NC}"
             echo -e "${GREEN}感谢使用！${NC}"
@@ -1585,7 +1901,7 @@ main() {
                 show_header
                 show_menu
                 
-                echo -n "请输入选择 (0-5): "
+                echo -n "请输入选择 (0-6): "
                 read choice
                 
                 handle_user_input "$choice"
