@@ -324,9 +324,12 @@ smart_clean_game() {
         if [ -d "$dir" ]; then
             dir_name=$(basename "$dir")
             if should_clean_dir "$dir_name"; then
-                echo -e "${GREEN}  [√] 清理: $dir_name${NC}"
-                rm -rf "$dir"
-                cleaned_count=$((cleaned_count + 1))
+                if rm -rf "$dir" 2>/dev/null; then
+                    echo -e "${GREEN}  [√] 清理: $dir_name${NC}"
+                    cleaned_count=$((cleaned_count + 1))
+                else
+                    echo -e "${YELLOW}  [!] 清理失败: $dir_name${NC}"
+                fi
             fi
         fi
     done
@@ -337,9 +340,12 @@ smart_clean_game() {
             if [ -e "$item" ]; then
                 item_name=$(basename "$item")
                 if should_clean_dir "$item_name"; then
-                    echo -e "${GREEN}  [√] 清理: files/$item_name${NC}"
-                    rm -rf "$item"
-                    cleaned_count=$((cleaned_count + 1))
+                    if rm -rf "$item" 2>/dev/null; then
+                        echo -e "${GREEN}  [√] 清理: files/$item_name${NC}"
+                        cleaned_count=$((cleaned_count + 1))
+                    else
+                        echo -e "${YELLOW}  [!] 清理失败: files/$item_name${NC}"
+                    fi
                 fi
             fi
         done
@@ -347,35 +353,42 @@ smart_clean_game() {
     
     # 清理固定的通用目录
     if [ -d "$base/cache" ]; then
-        echo -e "${GREEN}  [√] 清理: cache${NC}"
-        rm -rf "$base/cache"
-        cleaned_count=$((cleaned_count + 1))
+        if rm -rf "$base/cache" 2>/dev/null; then
+            echo -e "${GREEN}  [√] 清理: cache${NC}"
+            cleaned_count=$((cleaned_count + 1))
+        fi
     fi
     
     if [ -d "$base/code_cache" ]; then
-        echo -e "${GREEN}  [√] 清理: code_cache${NC}"
-        rm -rf "$base/code_cache"
-        cleaned_count=$((cleaned_count + 1))
+        if rm -rf "$base/code_cache" 2>/dev/null; then
+            echo -e "${GREEN}  [√] 清理: code_cache${NC}"
+            cleaned_count=$((cleaned_count + 1))
+        fi
     fi
     
     if [ -d "$base/databases" ]; then
-        echo -e "${GREEN}  [√] 清理: databases${NC}"
-        rm -rf "$base/databases"
-        cleaned_count=$((cleaned_count + 1))
+        if rm -rf "$base/databases" 2>/dev/null; then
+            echo -e "${GREEN}  [√] 清理: databases${NC}"
+            cleaned_count=$((cleaned_count + 1))
+        fi
     fi
     
     if [ -d "$base/shared_prefs" ]; then
-        echo -e "${GREEN}  [√] 清理: shared_prefs${NC}"
-        rm -rf "$base/shared_prefs"
-        cleaned_count=$((cleaned_count + 1))
+        if rm -rf "$base/shared_prefs" 2>/dev/null; then
+            echo -e "${GREEN}  [√] 清理: shared_prefs${NC}"
+            cleaned_count=$((cleaned_count + 1))
+        fi
     fi
     
     # 清理外部存储
     if [ -d "$sdcard_dir" ]; then
-        echo -e "${GREEN}  [√] 清理: 外部存储数据${NC}"
-        rm -rf "$sdcard_dir/files"
-        rm -rf "$sdcard_dir/cache"
-        cleaned_count=$((cleaned_count + 1))
+        local external_cleaned=0
+        rm -rf "$sdcard_dir/files" 2>/dev/null && external_cleaned=1
+        rm -rf "$sdcard_dir/cache" 2>/dev/null && external_cleaned=1
+        if [ $external_cleaned -eq 1 ]; then
+            echo -e "${GREEN}  [√] 清理: 外部存储数据${NC}"
+            cleaned_count=$((cleaned_count + 1))
+        fi
     fi
     
     echo -e "${GREEN}[完成] $game_name 清理完成，共清理 $cleaned_count 项${NC}"
@@ -385,22 +398,24 @@ smart_clean_game() {
 
 # 检测已安装的游戏
 detect_installed_games() {
+    # 缓存包列表以提高性能
+    local installed_packages=$(pm list packages 2>/dev/null)
     local -A games
     
     # 三角洲行动
-    pm list packages | grep -q "$GAME_DELTA_CN" 2>/dev/null && games["delta_cn"]="1"
-    pm list packages | grep -q "$GAME_DELTA_TW" 2>/dev/null && games["delta_tw"]="1"
-    pm list packages | grep -q "$GAME_DELTA_GLOBAL" 2>/dev/null && games["delta_global"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_DELTA_CN$" && games["delta_cn"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_DELTA_TW$" && games["delta_tw"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_DELTA_GLOBAL$" && games["delta_global"]="1"
     
     # 王者荣耀
-    pm list packages | grep -q "$GAME_HONOR_CN" 2>/dev/null && games["honor_cn"]="1"
-    pm list packages | grep -q "$GAME_HONOR_TW" 2>/dev/null && games["honor_tw"]="1"
-    pm list packages | grep -q "$GAME_HONOR_GLOBAL" 2>/dev/null && games["honor_global"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_HONOR_CN$" && games["honor_cn"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_HONOR_TW$" && games["honor_tw"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_HONOR_GLOBAL$" && games["honor_global"]="1"
     
     # 和平精英
-    pm list packages | grep -q "$GAME_PUBG_CN" 2>/dev/null && games["pubg_cn"]="1"
-    pm list packages | grep -q "$GAME_PUBG_TW" 2>/dev/null && games["pubg_tw"]="1"
-    pm list packages | grep -q "$GAME_PUBG_GLOBAL" 2>/dev/null && games["pubg_global"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_PUBG_CN$" && games["pubg_cn"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_PUBG_TW$" && games["pubg_tw"]="1"
+    echo "$installed_packages" | grep -q "^package:$GAME_PUBG_GLOBAL$" && games["pubg_global"]="1"
     
     # 返回结果（通过echo，因为bash不支持返回关联数组）
     for key in "${!games[@]}"; do
@@ -1741,28 +1756,22 @@ menu_option_6() {
                 echo -e "${BLUE}[*] 操作已取消${NC}"
             fi
             ;;
-        [1-9]*)
-            # 检查输入的序号是否有效
-            local valid=0
-            for i in "${!game_list[@]}"; do
-                if [ "$choice" = "${game_list[$i]}" ]; then
-                    valid=1
+        [1-9]|[1-9][0-9])
+            # 检查输入的序号是否有效（限制在1-99范围内）
+            if [ "$choice" -ge 1 ] 2>/dev/null && [ "$choice" -le "${#game_list[@]}" ] 2>/dev/null; then
+                local idx=$((choice - 1))
+                echo ""
+                echo -e "${RED}[警告] 即将清理 ${game_names[$idx]} 的数据${NC}"
+                echo -n "确定要继续吗? (y/N): "
+                read confirm
+                if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
                     echo ""
-                    echo -e "${RED}[警告] 即将清理 ${game_names[$i]} 的数据${NC}"
-                    echo -n "确定要继续吗? (y/N): "
-                    read confirm
-                    if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
-                        echo ""
-                        smart_clean_game "${game_packages[$i]}" "${game_names[$i]}"
-                        echo -e "${GREEN}[√] 游戏清理完成${NC}"
-                    else
-                        echo -e "${BLUE}[*] 操作已取消${NC}"
-                    fi
-                    break
+                    smart_clean_game "${game_packages[$idx]}" "${game_names[$idx]}"
+                    echo -e "${GREEN}[√] 游戏清理完成${NC}"
+                else
+                    echo -e "${BLUE}[*] 操作已取消${NC}"
                 fi
-            done
-            
-            if [ $valid -eq 0 ]; then
+            else
                 echo -e "${RED}[!] 无效的选择${NC}"
             fi
             ;;
