@@ -436,24 +436,18 @@ detect_root_env() {
     fi
     
     echo "========================================"
+    echo ""  # 添加一个空行
+    echo -n "按回车键返回主菜单... "
+    read dummy
 }
 
 # 检测SU二进制文件
+# ==================== 修复的Root检测函数 ====================
+
+# 检测SU二进制文件
 check_su_binaries() {
-    local su_paths=(
-        "/system/bin/su"
-        "/system/xbin/su"
-        "/sbin/su"
-        "/system/su"
-        "/system/bin/.ext/.su"
-        "/system/xbin/daemonsu"
-        "/system/xbin/mu"
-        "/data/local/xbin/su"
-        "/data/local/bin/su"
-        "/su/bin/su"
-    )
-    
-    for path in "${su_paths[@]}"; do
+    su_paths="/system/bin/su /system/xbin/su /sbin/su /system/su /system/bin/.ext/.su /system/xbin/daemonsu /system/xbin/mu /data/local/xbin/su /data/local/bin/su /su/bin/su"
+    for path in $su_paths; do
         if [ -f "$path" ] || [ -L "$path" ]; then
             echo "  发现: $path"
             return 0
@@ -462,17 +456,10 @@ check_su_binaries() {
     return 1
 }
 
-# 检测Magisk
+# 检测Magisk - 已修复
 check_magisk() {
-    local magisk_paths=(
-        "/sbin/.magisk"
-        "/sbin/.magisk/mirror"
-        "/data/adb/magisk"
-        "/data/adb/magisk.db"
-        "/data/adb/modules"
-    )
-    
-    for path in "${magisk_paths[@]}"; do
+    magisk_paths="/sbin/.magisk /sbin/.magisk/mirror /data/adb/magisk /data/adb/magisk.db /data/adb/modules"
+    for path in $magisk_paths; do
         if [ -e "$path" ]; then
             echo "  发现Magisk痕迹: $path"
             return 0
@@ -480,7 +467,7 @@ check_magisk() {
     done
     
     # 检查Magisk进程
-    if ps | grep -i magisk | grep -v grep > /dev/null 2>&1; then
+    if ps 2>/dev/null | grep -i magisk | grep -v grep >/dev/null 2>&1; then
         echo "  发现Magisk相关进程"
         return 0
     fi
@@ -490,20 +477,14 @@ check_magisk() {
 
 # 检测Xposed框架
 check_xposed() {
-    local xposed_files=(
-        "/system/framework/XposedBridge.jar"
-        "/system/lib/libxposed_art.so"
-        "/system/lib64/libxposed_art.so"
-    )
-    
-    for file in "${xposed_files[@]}"; do
+    xposed_files="/system/framework/XposedBridge.jar /system/lib/libxposed_art.so /system/lib64/libxposed_art.so"
+    for file in $xposed_files; do
         if [ -f "$file" ]; then
             echo "  发现Xposed文件: $file"
             return 0
         fi
     done
     
-    # 检查Xposed应用
     if [ -d "/data/data/de.robv.android.xposed.installer" ]; then
         echo "  发现Xposed安装器"
         return 0
@@ -518,17 +499,9 @@ check_build_props() {
         return 1
     fi
     
-    local suspicious_props=(
-        "ro.debuggable=1"
-        "ro.secure=0"
-        "service.adb.root=1"
-        "ro.build.type=eng"
-        "ro.build.type=userdebug"
-        "ro.build.tags=test-keys"
-    )
-    
-    for prop in "${suspicious_props[@]}"; do
-        if grep -q "$prop" /system/build.prop 2>/dev/null; then
+    suspicious_props="ro.debuggable=1 ro.secure=0 service.adb.root=1 ro.build.type=eng ro.build.type=userdebug ro.build.tags=test-keys"
+    for prop in $suspicious_props; do
+        if grep -Fq "$prop" /system/build.prop 2>/dev/null; then
             echo "  可疑属性: $prop"
             return 0
         fi
@@ -539,33 +512,18 @@ check_build_props() {
 
 # 检测Root应用
 check_root_apps() {
-    # 检查/data/app目录下的常见Root应用
-    local root_app_patterns=(
-        "*magisk*"
-        "*supersu*"
-        "*superuser*"
-        "*xposed*"
-        "*rootcloak*"
-        "*hidemyroot*"
-    )
-    
-    for pattern in "${root_app_patterns[@]}"; do
+    root_app_patterns="magisk supersu superuser xposed rootcloak hidemyroot"
+    for pattern in $root_app_patterns; do
         if ls /data/app/$pattern 2>/dev/null | grep -q .; then
             echo "  发现Root相关应用: $pattern"
             return 0
         fi
     done
     
-    # 检查已安装的包
     if command -v pm >/dev/null 2>&1; then
-        local root_packages=(
-            "com.topjohnwu.magisk"
-            "eu.chainfire.supersu"
-            "com.koushikdutta.superuser"
-        )
-        
-        for pkg in "${root_packages[@]}"; do
-            if pm list packages | grep -q "$pkg" 2>/dev/null; then
+        root_packages="com.topjohnwu.magisk eu.chainfire.supersu com.koushikdutta.superuser"
+        for pkg in $root_packages; do
+            if pm list packages 2>/dev/null | grep -q "$pkg"; then
                 echo "  已安装Root应用: $pkg"
                 return 0
             fi
@@ -596,17 +554,9 @@ test_root_access() {
 
 # 检测BusyBox
 check_busybox() {
-    # 检查非系统位置的BusyBox
-    local non_system_paths=(
-        "/data/local/bin/busybox"
-        "/data/local/busybox"
-        "/su/bin/busybox"
-        "/system/xbin/busybox"  # 系统xbin的busybox也可能是后装的
-    )
-    
-    for path in "${non_system_paths[@]}"; do
-        if [ -f "$path" ]; then
-            # 验证是busybox
+    non_system_paths="/data/local/bin/busybox /data/local/busybox /su/bin/busybox /system/xbin/busybox"
+    for path in $non_system_paths; do
+        if [ -f "$path" ] || [ -x "$path" ]; then
             if "$path" --help 2>&1 | grep -q "BusyBox"; then
                 echo "  发现BusyBox: $path"
                 return 0
