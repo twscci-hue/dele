@@ -121,7 +121,7 @@ if [ $NO_MINIFY -eq 1 ]; then
 else
     echo -e "${YELLOW}[1/6] Minifying script...${NC}"
     # Simple minification: remove comments and empty lines
-    grep -v '^\s*#' "$INPUT_FILE" | grep -v '^\s*$' > "$WORK_FILE" || cp "$INPUT_FILE" "$WORK_FILE"
+    grep -v '^[[:space:]]*#' "$INPUT_FILE" | grep -v '^[[:space:]]*$' > "$WORK_FILE" || cp "$INPUT_FILE" "$WORK_FILE"
 fi
 
 ORIGINAL_SIZE=$(wc -c < "$INPUT_FILE")
@@ -255,17 +255,20 @@ static int aes_decrypt(const unsigned char *ciphertext, int ciphertext_len,
     
     if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1) {
         EVP_CIPHER_CTX_free(ctx);
+        free(*plaintext);
         return -1;
     }
     
     if (EVP_DecryptUpdate(ctx, *plaintext, &len, ciphertext, ciphertext_len) != 1) {
         EVP_CIPHER_CTX_free(ctx);
+        free(*plaintext);
         return -1;
     }
     *plaintext_len = len;
     
     if (EVP_DecryptFinal_ex(ctx, *plaintext + len, &len) != 1) {
         EVP_CIPHER_CTX_free(ctx);
+        free(*plaintext);
         return -1;
     }
     *plaintext_len += len;
@@ -322,7 +325,14 @@ int main(int argc, char *argv[]) {
     unsigned char *decompressed_data = NULL;
     size_t decompressed_len = 0;
     FILE *tmp_file;
-    char tmp_path[] = "/data/local/tmp/dele_XXXXXX";
+    // Try multiple temp locations for better compatibility
+    char tmp_path[256];
+    const char *tmpdir = getenv("TMPDIR");
+    if (tmpdir) {
+        snprintf(tmp_path, sizeof(tmp_path), "%s/dele_XXXXXX", tmpdir);
+    } else {
+        snprintf(tmp_path, sizeof(tmp_path), "/data/local/tmp/dele_XXXXXX");
+    }
     int fd;
     
     // Step 1: Deobfuscate key
