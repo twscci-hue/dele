@@ -225,7 +225,18 @@ static int base64_decode(const char *input, unsigned char **output, size_t *outp
     }
     
     bio = BIO_new_mem_buf(input, input_len);
+    if (!bio) {
+        free(*output);
+        return -1;
+    }
+    
     b64 = BIO_new(BIO_f_base64());
+    if (!b64) {
+        BIO_free(bio);
+        free(*output);
+        return -1;
+    }
+    
     bio = BIO_push(b64, bio);
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     
