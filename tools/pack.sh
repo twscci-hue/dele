@@ -220,6 +220,9 @@ static int base64_decode(const char *input, unsigned char **output, size_t *outp
     BIO *bio, *b64;
     size_t input_len = strlen(input);
     *output = malloc(input_len);
+    if (!*output) {
+        return -1;
+    }
     
     bio = BIO_new_mem_buf(input, input_len);
     b64 = BIO_new(BIO_f_base64());
@@ -241,8 +244,12 @@ static int aes_decrypt(const unsigned char *ciphertext, int ciphertext_len,
     int ret = 0;
     
     *plaintext = malloc(ciphertext_len + EVP_MAX_BLOCK_LENGTH);
+    if (!*plaintext) {
+        return -1;
+    }
     
     if (!(ctx = EVP_CIPHER_CTX_new())) {
+        free(*plaintext);
         return -1;
     }
     
@@ -274,6 +281,9 @@ static int gzip_decompress(const unsigned char *compressed, int compressed_len,
     int ret;
     size_t buf_size = compressed_len * 10; // Initial buffer size
     *decompressed = malloc(buf_size);
+    if (!*decompressed) {
+        return -1;
+    }
     
     stream.zalloc = Z_NULL;
     stream.zfree = Z_NULL;
