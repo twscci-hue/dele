@@ -4,7 +4,7 @@
 # 集成高级自毁机制
 # - 一键隐藏（选项6）基于 Magisk 模块配置，仅做文本配置/备份/生成建议，不做激进操作
 # - 运行前请在 root 环境并确保脚本可执行：chmod +x dele.sh
-
+clear
 # 版本配置
 CURRENT_VERSION="3.0.0"
 # 请按需替换为你的版本文件 URL（支持 http(s) 地址或 github.com blob 链接）
@@ -35,8 +35,8 @@ ROOT_CHECK_MODE="full"      # 检测模式: "full"完整检测, "quick"快速检
 SHOW_HIDING_ADVICE=true     # 是否显示隐藏建议
 
 # 日志配置
-LOG_ENABLED=true
-LOG_FILE="/tmp/$(basename "$0").log"
+LOG_ENABLED=false   ##启用 true  禁用 false
+#LOG_FILE="/tmp/$(basename "$0").log"
 
 # 自毁模式和错误计数
 SELF_DESTRUCT_MODE=0
