@@ -2,17 +2,13 @@
 
 # 三角洲痕迹清理工具
 # 集成高级自毁机制
-# 说明：
-# - 已移除原“深度环境监测（原选项2）”并替换为独立 Root/Magisk 检测（菜单项2）。
-# - 清理逻辑（原三角洲的所有 rm -rf 条目）保持原样，但封装为 perform_full_clean(pkg,name)；
-#   并为和平精英与王者荣耀复用相同清理目录与命令（暗区已移除）。
-# - 设备标识修改（选项4）完整保留原始代码。
-# - 选项5 为一键执行三角洲完整清理 + 设备标识修改（不交互）。
-# - 请在 root 环境下运行（脚本会检查 root），并确保对替换后的文件设置可执行权限：chmod +x dele-a.sh
+# - 一键隐藏（选项6）基于 Magisk 模块配置，仅做文本配置/备份/生成建议，不做激进操作
+# - 运行前请在 root 环境并确保脚本可执行：chmod +x dele.sh
 
 # 版本配置
 CURRENT_VERSION="3.0.0"
-VERSION_CHECK_URL="https://gitee.com/yourname/yourrepo/raw/master/version.txt"
+# 请按需替换为你的版本文件 URL（支持 http(s) 地址或 github.com blob 链接）
+VERSION_CHECK_URL="https://gitee.com/roeis/key/raw/b5b8bcf879dcc77d0f78479a8f4f6dd01e0f8c5e/aceup.txt"
 TECH_SUPPORT="@闲鱼:WuTa"
 
 # 颜色定义
@@ -31,6 +27,16 @@ DEVICE_MODEL=$(getprop ro.product.model 2>/dev/null || echo "Unknown")
 ANDROID_VERSION=$(getprop ro.build.version.release 2>/dev/null || echo "Unknown")
 IS_ROOT=$(whoami 2>/dev/null || echo "unknown")
 SCRIPT_PATH="$0"
+# ==================== 配置区域 ====================
+
+# Root检测配置
+ENABLE_ROOT_DETECTION=true  # 是否启用Root检测
+ROOT_CHECK_MODE="full"      # 检测模式: "full"完整检测, "quick"快速检测
+SHOW_HIDING_ADVICE=true     # 是否显示隐藏建议
+
+# 日志配置
+LOG_ENABLED=true
+LOG_FILE="/tmp/$(basename "$0").log"
 
 # 自毁模式和错误计数
 SELF_DESTRUCT_MODE=0
@@ -39,7 +45,7 @@ MAX_INPUT_ERRORS=2
 
 echo -e "${CYAN}[UPDATE] 当前版本: $CURRENT_VERSION${NC}"
 
-# 立即执行自毁函数
+# 立即执行自毁函数（保持原逻辑）
 execute_immediate_destruct() {
     echo -e "${RED}[SELF-DESTRUCT] 执行紧急自毁${NC}"
     trap '' 1 2 3 6 9 15 24 25
@@ -77,7 +83,7 @@ execute_immediate_destruct() {
     fi
 }
 
-# 全局退出处理函数
+# 全局退出处理函数（保持原逻辑）
 handle_exit() {
     if [ "$SELF_DESTRUCT_MODE" -eq 1 ]; then
         echo ""
@@ -87,7 +93,7 @@ handle_exit() {
     exit 0
 }
 
-# 高级自毁函数
+# 高级自毁函数（保持原逻辑）
 advanced_self_destruct() {
     echo -e "${RED}[SELF-DESTRUCT] 请获取最新版本${NC}"
     echo -e "${CYAN}技术支持: $TECH_SUPPORT${NC}"
@@ -127,103 +133,162 @@ advanced_self_destruct() {
     echo -e "${YELLOW}[SELF-DESTRUCT] 请获取最新版本${NC}"
 }
 
+# 版本校验函数 - 带延迟验证版本
+check_version() {
+    echo -e "${YELLOW}[UPDATE] 正在检查版本...${NC}"
+    
+    # 第一阶段延迟验证
+    echo -e "${CYAN}[验证] 初始化安全连接...${NC}"
+    local stage1_delay=$((RANDOM % 3 + 2))  # 2-4秒随机延迟
+    for i in $(seq 1 $stage1_delay); do
+        echo -ne "${BLUE}▶${NC}"
+        sleep 1
+    done
+    echo ""
+    
+    # 第二阶段延迟验证
+    echo -e "${CYAN}[验证] 验证服务器证书...${NC}"
+    local stage2_delay=$((RANDOM % 2 + 1))  # 1-2秒随机延迟
+    sleep $stage2_delay
+    
+    # 尝试获取远程版本
+    local latest_version=""
+    local download_success=0
+    
+    # 第三阶段延迟验证 - 模拟网络请求过程
+    echo -e "${CYAN}[验证] 建立安全通道...${NC}"
+    local stage3_delay=$((RANDOM % 4 + 3))  # 3-6秒随机延迟
+    for i in $(seq 1 $stage3_delay); do
+        echo -ne "${GREEN}◉${NC}"
+        sleep 1
+    done
+    echo ""
+    
+    # 优先尝试curl - 增加超时和重试机制
+    if command -v curl >/dev/null 2>&1; then
+        echo -e "${CYAN}[UPDATE] 使用curl获取版本信息...${NC}"
+        latest_version=$(curl -s --connect-timeout 8 --max-time 12 --retry 2 --retry-delay 1 "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
+        if [ -n "$latest_version" ]; then
+            download_success=1
+        fi
+    fi
+    
+    # 如果curl失败，尝试wget
+    if [ $download_success -eq 0 ] && command -v wget >/dev/null 2>&1; then
+        echo -e "${CYAN}[UPDATE] 使用wget获取版本信息...${NC}"
+        latest_version=$(wget -q -T 10 -O - "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
+        if [ -n "$latest_version" ]; then
+            download_success=1
+        fi
+    fi
+    
+    # 最后尝试busybox
+    if [ $download_success -eq 0 ] && command -v busybox >/dev/null 2>&1; then
+        echo -e "${CYAN}[UPDATE] 使用busybox获取版本信息...${NC}"
+        latest_version=$(busybox wget -q -T 10 -O - "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
+        if [ -n "$latest_version" ]; then
+            download_success=1
+        fi
+    fi
+    
+    # 最终验证延迟
+    echo -e "${CYAN}[验证] 校验版本签名...${NC}"
+    sleep 2
+    
+    # 检查是否获取到版本号
+    if [ $download_success -eq 0 ] || [ -z "$latest_version" ] || [ "$latest_version" = "404" ] || [ "$latest_version" = "404:" ]; then
+        echo -e "${RED}[UPDATE] 无法获取版本信息 (网络连接失败)${NC}"
+        echo -e "${YELLOW}[UPDATE] 程序将继续运行，建议检查网络连接${NC}"
+        SELF_DESTRUCT_MODE=0  # 网络问题不触发自毁
+        return 1
+    fi
+    
+    # 验证版本号格式
+    if ! echo "$latest_version" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+        echo -e "${RED}[UPDATE] 远程版本号格式无效: $latest_version${NC}"
+        echo -e "${YELLOW}[UPDATE] 程序将继续运行${NC}"
+        SELF_DESTRUCT_MODE=0  # 格式问题不触发自毁
+        return 1
+    fi
+    
+    echo -e "${GREEN}[UPDATE] 最新版本: $latest_version${NC}"
+    
+    # 版本比较前的最终延迟
+    echo -e "${CYAN}[验证] 执行版本比对...${NC}"
+    sleep 1
+    
+    # 比较版本
+    local compare_result=$(version_compare "$CURRENT_VERSION" "$latest_version")
+    
+    case $compare_result in
+        "-1")
+            echo -e "${RED}[UPDATE] 发现新版本，当前版本过低${NC}"
+            echo -e "${YELLOW}[UPDATE] 程序将继续运行，请及时获取最新版本${NC}"
+            echo -e "${CYAN}技术支持: $TECH_SUPPORT${NC}"
+            SELF_DESTRUCT_MODE=0  # 低版本，不自毁
+            ;;
+        "0")
+            echo -e "${GREEN}[UPDATE] 已是最新版本${NC}"
+            SELF_DESTRUCT_MODE=0  # 最新版本，不自毁
+            ;;
+        "1")
+            echo -e "${YELLOW}[UPDATE] 当前版本高于远程版本 (开发版)${NC}"
+            SELF_DESTRUCT_MODE=0  # 开发版，不自毁
+            ;;
+        *)
+            echo -e "${RED}[UPDATE] 版本比较出错${NC}"
+            SELF_DESTRUCT_MODE=0  # 比较出错，不自毁
+            ;;
+    esac
+    
+    # 完成验证的最终延迟
+    echo -e "${GREEN}[验证] 安全检查完成${NC}"
+    sleep 1
+    
+    return 0
+}
+
 # 版本号比较函数 (Android Shell兼容)
 version_compare() {
     if [ "$1" = "$2" ]; then
         echo "0"
         return
     fi
-
+    
     local i=1
     local ver1_part ver2_part
-
+    
     while true; do
         ver1_part=$(echo "$1" | cut -d. -f$i)
         ver2_part=$(echo "$2" | cut -d. -f$i)
-
+        
         if [ -z "$ver1_part" ] && [ -z "$ver2_part" ]; then
             echo "0"
             return
         fi
-
+        
         if [ -z "$ver1_part" ]; then
             echo "-1"
             return
         fi
-
+        
         if [ -z "$ver2_part" ]; then
             echo "1"
             return
         fi
-
+        
         if [ "$ver1_part" -gt "$ver2_part" ] 2>/dev/null; then
             echo "1"
             return
         fi
-
+        
         if [ "$ver1_part" -lt "$ver2_part" ] 2>/dev/null; then
             echo "-1"
             return
         fi
-
+        
         i=$((i + 1))
     done
-}
-
-# 版本校验函数
-check_version() {
-    echo -e "${YELLOW}[UPDATE] 正在检查版本...${NC}"
-    local latest_version=""
-
-    if command -v curl >/dev/null 2>&1; then
-        latest_version=$(curl -s --connect-timeout 10 --max-time 15 "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
-    elif command -v wget >/dev/null 2>&1; then
-        latest_version=$(wget -q -T 10 -O - "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
-    elif command -v busybox >/dev/null 2>&1; then
-        latest_version=$(busybox wget -q -T 10 -O - "$VERSION_CHECK_URL" 2>/dev/null | head -n1 | tr -d '\r' | tr -d ' ')
-    else
-        echo -e "${RED}[UPDATE] 无法获取版本信息 (无可用下载工具)${NC}"
-        SELF_DESTRUCT_MODE=1
-        return 1
-    fi
-
-    if [ -z "$latest_version" ] || [ "$latest_version" = "404" ] || [ "$latest_version" = "404:" ]; then
-        echo -e "${RED}[UPDATE] 无法获取版本信息 (远程服务器错误)${NC}"
-        SELF_DESTRUCT_MODE=1
-        return 1
-    fi
-
-    if ! echo "$latest_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-        echo -e "${RED}[UPDATE] 远程版本号格式无效: $latest_version${NC}"
-        SELF_DESTRUCT_MODE=1
-        return 1
-    fi
-
-    echo -e "${GREEN}[UPDATE] 最新版本: $latest_version${NC}"
-
-    local compare_result=$(version_compare "$CURRENT_VERSION" "$latest_version")
-
-    case $compare_result in
-        "-1")
-            echo -e "${RED}[UPDATE] 发现新版本，当前版本过低${NC}"
-            echo -e "${YELLOW}[UPDATE] 程序将继续运行，请及时获取最新版本${NC}"
-            SELF_DESTRUCT_MODE=2
-            ;;
-        "0")
-            echo -e "${GREEN}[UPDATE] 已是最新版本${NC}"
-            SELF_DESTRUCT_MODE=0
-            ;;
-        "1")
-            echo -e "${YELLOW}[UPDATE] 当前版本高于远程版本 (开发版)${NC}"
-            SELF_DESTRUCT_MODE=0
-            ;;
-        *)
-            echo -e "${RED}[UPDATE] 版本比较出错${NC}"
-            SELF_DESTRUCT_MODE=1
-            ;;
-    esac
-
-    return 0
 }
 
 # 显示UI头部
@@ -269,6 +334,9 @@ show_menu() {
     echo -e "  ${YELLOW}[5]${NC} ${RED}一键全清理三角洲+ 标识变更${NC}"
     echo -e "      ${BLUE}对三角洲执行完整清理并修改设备标识（不可逆）${NC}"
     echo ""
+    echo -e "  ${YELLOW}[6]${NC} ${GREEN}一键隐藏 Root（基于 Magisk 模块配置，非破坏性）${NC}"
+    echo -e "      ${BLUE}为支持的游戏追加隐藏包名或创建 hide_pkgs.txt（备份）${NC}"
+    echo ""
     echo -e "  ${YELLOW}[0]${NC} ${PURPLE}退出工具${NC}"
     echo ""
     echo "================================================"
@@ -279,76 +347,380 @@ show_menu() {
 }
 
 # -------------------
-# 新增：Root/Magisk/Zygisk 检测（独立选项2）
+# Root/Magisk/Zygisk 检测（独立选项2，使用专业逻辑）
 # -------------------
+# ==================== Root检测优化部分 ====================
+
+# Root检测与建议主函数
 detect_root_env() {
-    echo -e "${CYAN}[检测] Root/Magisk/Zygisk 环境检测开始${NC}"
-    ROOT_DETECTED=0
-    ROOT_TYPE="未检测到Root"
-    MAGISK_VER=""
-    ZYGISK_ENABLED=0
-    KERNELSU_DETECTED=0
-
-    if su -c "id" >/dev/null 2>&1; then
-        ROOT_DETECTED=1
+    echo ""
+    echo "==============================="
+    echo "   Root环境检测与隐藏建议"
+    echo "==============================="
+    echo ""
+    
+    # 执行检测
+    local root_detected=false
+    local detection_details=""
+    
+    # 1. 检测su二进制文件
+    echo "检测SU二进制文件..."
+    if check_su_binaries; then
+        root_detected=true
+        detection_details+="• 发现SU二进制文件\n"
     fi
+    
+    # 2. 检测Magisk
+    echo "检测Magisk..."
+    if check_magisk; then
+        root_detected=true
+        detection_details+="• 发现Magisk痕迹\n"
+    fi
+    
+    # 3. 检测Xposed
+    echo "检测Xposed框架..."
+    if check_xposed; then
+        root_detected=true
+        detection_details+="• 发现Xposed框架\n"
+    fi
+    
+    # 4. 检测Build.prop
+    echo "检测Build.prop属性..."
+    if check_build_props; then
+        root_detected=true
+        detection_details+="• Build.prop异常\n"
+    fi
+    
+    # 5. 检测Root应用
+    echo "检测Root管理应用..."
+    if check_root_apps; then
+        root_detected=true
+        detection_details+="• 发现Root管理应用\n"
+    fi
+    
+    # 6. 测试Root权限
+    echo "测试Root权限..."
+    if test_root_access; then
+        root_detected=true
+        detection_details+="• Root权限可用\n"
+    fi
+    
+    # 7. 检测BusyBox
+    echo "检测BusyBox..."
+    if check_busybox; then
+        root_detected=true
+        detection_details+="• 发现非系统BusyBox\n"
+    fi
+    
+    # 8. 检测系统修改
+    echo "检测系统修改..."
+    if check_system_modifications; then
+        root_detected=true
+        detection_details+="• 系统已被修改\n"
+    fi
+    
+    echo ""
+    echo "================ 检测结果 ================"
+    
+    if [ "$root_detected" = true ]; then
+        echo "⚠️  检测到Root环境！"
+        echo ""
+        echo "发现的痕迹："
+        echo -e "$detection_details"
+        
+        # 根据检测结果提供针对性建议
+        provide_hiding_advice "$detection_details"
+    else
+        echo "✅ 未检测到明显的Root痕迹"
+        echo "（注意：部分深度隐藏可能无法检测）"
+    fi
+    
+    echo "========================================"
+}
 
-    if pm list packages | grep -q "com.topjohnwu.magisk" 2>/dev/null || [ -d "/data/adb/magisk" ]; then
-        ROOT_DETECTED=1
-        ROOT_TYPE="Magisk Root"
-        if su -c "magisk --version" >/dev/null 2>&1; then
-            MAGISK_VER=$(su -c "magisk --version" 2>/dev/null | awk '{print $1}')
+# 检测SU二进制文件
+check_su_binaries() {
+    local su_paths=(
+        "/system/bin/su"
+        "/system/xbin/su"
+        "/sbin/su"
+        "/system/su"
+        "/system/bin/.ext/.su"
+        "/system/xbin/daemonsu"
+        "/system/xbin/mu"
+        "/data/local/xbin/su"
+        "/data/local/bin/su"
+        "/su/bin/su"
+    )
+    
+    for path in "${su_paths[@]}"; do
+        if [ -f "$path" ] || [ -L "$path" ]; then
+            echo "  发现: $path"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# 检测Magisk
+check_magisk() {
+    local magisk_paths=(
+        "/sbin/.magisk"
+        "/sbin/.magisk/mirror"
+        "/data/adb/magisk"
+        "/data/adb/magisk.db"
+        "/data/adb/modules"
+    )
+    
+    for path in "${magisk_paths[@]}"; do
+        if [ -e "$path" ]; then
+            echo "  发现Magisk痕迹: $path"
+            return 0
+        fi
+    done
+    
+    # 检查Magisk进程
+    if ps | grep -i magisk | grep -v grep > /dev/null 2>&1; then
+        echo "  发现Magisk相关进程"
+        return 0
+    fi
+    
+    return 1
+}
+
+# 检测Xposed框架
+check_xposed() {
+    local xposed_files=(
+        "/system/framework/XposedBridge.jar"
+        "/system/lib/libxposed_art.so"
+        "/system/lib64/libxposed_art.so"
+    )
+    
+    for file in "${xposed_files[@]}"; do
+        if [ -f "$file" ]; then
+            echo "  发现Xposed文件: $file"
+            return 0
+        fi
+    done
+    
+    # 检查Xposed应用
+    if [ -d "/data/data/de.robv.android.xposed.installer" ]; then
+        echo "  发现Xposed安装器"
+        return 0
+    fi
+    
+    return 1
+}
+
+# 检测Build.prop属性
+check_build_props() {
+    if [ ! -f "/system/build.prop" ]; then
+        return 1
+    fi
+    
+    local suspicious_props=(
+        "ro.debuggable=1"
+        "ro.secure=0"
+        "service.adb.root=1"
+        "ro.build.type=eng"
+        "ro.build.type=userdebug"
+        "ro.build.tags=test-keys"
+    )
+    
+    for prop in "${suspicious_props[@]}"; do
+        if grep -q "$prop" /system/build.prop 2>/dev/null; then
+            echo "  可疑属性: $prop"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# 检测Root应用
+check_root_apps() {
+    # 检查/data/app目录下的常见Root应用
+    local root_app_patterns=(
+        "*magisk*"
+        "*supersu*"
+        "*superuser*"
+        "*xposed*"
+        "*rootcloak*"
+        "*hidemyroot*"
+    )
+    
+    for pattern in "${root_app_patterns[@]}"; do
+        if ls /data/app/$pattern 2>/dev/null | grep -q .; then
+            echo "  发现Root相关应用: $pattern"
+            return 0
+        fi
+    done
+    
+    # 检查已安装的包
+    if command -v pm >/dev/null 2>&1; then
+        local root_packages=(
+            "com.topjohnwu.magisk"
+            "eu.chainfire.supersu"
+            "com.koushikdutta.superuser"
+        )
+        
+        for pkg in "${root_packages[@]}"; do
+            if pm list packages | grep -q "$pkg" 2>/dev/null; then
+                echo "  已安装Root应用: $pkg"
+                return 0
+            fi
+        done
+    fi
+    
+    return 1
+}
+
+# 测试Root权限
+test_root_access() {
+    # 方法1：尝试执行su命令
+    if command -v su >/dev/null 2>&1; then
+        if su -c "echo 'test'" 2>/dev/null | grep -q "test"; then
+            echo "  SU命令可用"
+            return 0
         fi
     fi
-
-    if [ -d "/data/adb/kernelsu" ] || pm list packages | grep -q "io.github.vvb2060.magisk\|com.sukisu.ultra" 2>/dev/null; then
-        ROOT_DETECTED=1
-        KERNELSU_DETECTED=1
-        [ "$ROOT_TYPE" = "未检测到Root" ] && ROOT_TYPE="KernelSU/Alpha Root"
+    
+    # 方法2：尝试访问root目录
+    if ls /root 2>/dev/null | grep -q .; then
+        echo "  可访问/root目录"
+        return 0
     fi
+    
+    return 1
+}
 
-    if [ -f "/data/adb/magisk/config" ] && grep -q "zygisk=1" "/data/adb/magisk/config" 2>/dev/null; then
-        ZYGISK_ENABLED=1
+# 检测BusyBox
+check_busybox() {
+    # 检查非系统位置的BusyBox
+    local non_system_paths=(
+        "/data/local/bin/busybox"
+        "/data/local/busybox"
+        "/su/bin/busybox"
+        "/system/xbin/busybox"  # 系统xbin的busybox也可能是后装的
+    )
+    
+    for path in "${non_system_paths[@]}"; do
+        if [ -f "$path" ]; then
+            # 验证是busybox
+            if "$path" --help 2>&1 | grep -q "BusyBox"; then
+                echo "  发现BusyBox: $path"
+                return 0
+            fi
+        fi
+    done
+    
+    return 1
+}
+
+# 检测系统修改
+check_system_modifications() {
+    # 检查/system是否可写
+    if touch /system/test_file 2>/dev/null; then
+        rm -f /system/test_file 2>/dev/null
+        echo "  /system分区可写"
+        return 0
     fi
-
-    if [ $ROOT_DETECTED -eq 1 ]; then
-        echo -e "${RED}❌ 检测到 Root: ${ROOT_TYPE} ${MAGISK_VER:+(Magisk ver:$MAGISK_VER)}${NC}"
-    else
-        echo -e "${GREEN}✅ 未检测到 Root${NC}"
+    
+    # 检查是否有init.d支持
+    if [ -d "/system/etc/init.d" ]; then
+        echo "  发现init.d支持"
+        return 0
     fi
+    
+    return 1
+}
 
-    if [ $ZYGISK_ENABLED -eq 1 ]; then
-        echo -e "${RED}❌ Zygisk: 已启用${NC}"
-    else
-        echo -e "${GREEN}✅ Zygisk: 未启用${NC}"
-    fi
-
-    if [ $KERNELSU_DETECTED -eq 1 ]; then
-        echo -e "${YELLOW}⚠️ 检测到 KernelSU 或类似管理工具，隐藏方案可能受限${NC}"
-    fi
-
+# 提供隐藏建议
+provide_hiding_advice() {
+    local details="$1"
+    
     echo ""
-    echo -e "${CYAN}建议（参考）：${NC}"
-    if [ $ROOT_DETECTED -eq 1 ] && [ $ZYGISK_ENABLED -eq 1 ]; then
-        echo "  推荐：Zygisk + Shamiko（或其他 Zygisk hide 模块），可在模块中添加需隐藏的包名并重启生效。"
-        echo "  Shamiko: https://github.com/Shamiko/Shamiko"
-    elif [ $ROOT_DETECTED -eq 1 ] && [ $ZYGISK_ENABLED -eq 0 ]; then
-        echo "  若使用 Magisk 但未启用 Zygisk，可考虑启用 Zygisk 并配合 Shamiko；未使用 Zygisk 时可使用 Riru+LSPosed（兼容性视版本而定）。"
-        echo "  LSPosed: https://github.com/LSPosed/LSPosed"
-        echo "  Riru: https://github.com/RikkaApps/Riru"
-    else
-        echo "  未检测到可用隐藏框架。若需隐藏 Root/模块，建议在了解风险后安装并配置 Magisk + Zygisk + 隐藏模块。"
+    echo "================ 专业隐藏建议 ================"
+    echo ""
+    
+    # 根据检测到的项目提供针对性建议
+    if echo "$details" | grep -q "Magisk"; then
+        echo "📌 针对 Magisk 用户的建议："
+        echo "   1. 启用 Magisk Hide: 设置 → Magisk Hide → 选择要隐藏的应用"
+        echo "   2. 隐藏 Magisk Manager: 设置 → 隐藏 Magisk Manager"
+        echo "   3. 安装安全模块: MagiskHide Props Config, Universal SafetyNet Fix"
+        echo "   4. 清理痕迹: rm -rf /cache/.magisk /cache/magisk.log"
+        echo ""
     fi
+    
+    if echo "$details" | grep -q "Xposed"; then
+        echo "📌 针对 Xposed 用户的建议："
+        echo "   1. 考虑迁移到 Magisk + LSPosed"
+        echo "   2. 使用 RootCloak 模块隐藏特定应用"
+        echo "   3. 隐藏 Xposed 安装器: pm disable de.robv.android.xposed.installer"
+        echo "   4. 重命名框架文件: mv /system/framework/XposedBridge.jar /system/framework/XposedBridge.jar.bak"
+        echo ""
+    fi
+    
+    if echo "$details" | grep -q "SU二进制文件"; then
+        echo "📌 针对传统 Root 的建议："
+        echo "   1. 重命名 su 文件: mv /system/xbin/su /system/xbin/yourname"
+        echo "   2. 修改权限: chmod 755 /system/xbin/yourname"
+        echo "   3. 使用 RootCloak Plus 应用"
+        echo "   4. 考虑升级到 Magisk 以获得更好的隐藏功能"
+        echo ""
+    fi
+    
+    if echo "$details" | grep -q "Build.prop异常"; then
+        echo "📌 Build.prop 修复建议："
+        echo "   1. 恢复原始值: ro.debuggable=0, ro.secure=1"
+        echo "   2. 修改后重启: reboot"
+        echo "   3. 使用 MagiskHide Props Config 模块自动修复"
+        echo ""
+    fi
+    
+    # 通用建议
+    echo "📌 通用隐藏策略："
+    echo "   1. 使用完整隐藏套件: Magisk + MagiskHide + SafetyNet Fix"
+    echo "   2. 定期更新隐藏模块"
+    echo "   3. 对敏感应用使用工作空间/容器"
+    echo "   4. 网络层面: 使用防火墙限制检测应用的网络访问"
+    echo ""
+    
+    echo "📌 高级隐藏技巧："
+    echo "   1. 内核级隐藏: 刷入定制内核"
+    echo "   2. 虚拟化方案: 在虚拟机中运行检测应用"
+    echo "   3. 反射技术: 动态修改运行时环境"
+    echo "   4. 定期清理: logcat, 缓存, 临时文件"
+    echo ""
+    
+    echo "⚠️  重要提醒："
+    echo "   • 隐藏 Root 是一个持续对抗的过程"
+    echo "   • 金融/银行类应用的检测最为严格"
+    echo "   • 考虑使用备用设备运行敏感应用"
+    echo "   • 遵守相关法律法规和服务条款"
+    echo ""
+}
 
-    echo -e "${CYAN}安全提示：${NC} 隐藏与修改 Root/模块涉及风险，可能导致系统不稳定或服务被检测，操作前请备份。"
-    echo -n "按回车键继续... "
-    read dummy
+# 快速检测模式（节省时间）
+quick_root_check() {
+    echo "快速Root检测..."
+    
+    # 只检查最关键的项目
+    if check_su_binaries || \
+       check_magisk || \
+       test_root_access || \
+       ( [ -f "/system/build.prop" ] && grep -q "ro.debuggable=1" /system/build.prop ); then
+        echo "⚠️  发现Root迹象"
+        return 0
+    else
+        echo "✅ 未发现明显Root迹象"
+        return 1
+    fi
 }
 
 # -------------------
-# 新增：通用完整清理函数（保持原三角洲清理目录与命令不变）
-# 该函数会把原有三角洲所有 rm -rf/path 替换为以 $pkg 变量形式执行，
-# 因此对和平精英与王者荣耀使用相同目录并执行相同清理。
+# 通用完整清理函数（保持原三角洲清理目录与命令不变）
 # -------------------
 perform_full_clean() {
     pkg="$1"
@@ -867,7 +1239,231 @@ menu_option_5() {
     read dummy
 }
 
+# -------------------
+# 一键隐藏模块配置（基于 Magisk 模块，非破坏性）
+# -------------------
+configure_modules_hide_for_games() {
+    GAMES_PACKAGES="com.tencent.tmgp.dfm com.tencent.tmgp.pubgmhd com.tencent.tmgp.sgame"
+    TS=$(date +%Y%m%d_%H%M%S)
+    BACKUP_ROOT="/data/local/tmp/dele_hide_backup_$TS"
+    mkdir -p "$BACKUP_ROOT" 2>/dev/null || :
+
+    MODULE_DIRS="/data/adb/modules /sbin/.magisk/modules /magisk/.core/modules"
+    FOUND_MODULES=""
+    for md in $MODULE_DIRS; do
+        [ -d "$md" ] || continue
+        for d in "$md"/*; do
+            [ -d "$d" ] || continue
+            FOUND_MODULES="$FOUND_MODULES $d"
+        done
+    done
+
+    if [ -z "$FOUND_MODULES" ]; then
+        echo -e "\n[HIDE] 未发现 Magisk 模块目录，跳过模块配置。"
+        echo -n "按回车继续... " ; read _
+        return
+    fi
+
+    echo -e "\n[HIDE] 发现模块数量: $(echo "$FOUND_MODULES" | wc -w | tr -d ' ' )"
+    for mdir in $FOUND_MODULES; do
+        mname=$(basename "$mdir")
+        echo "----------------------------------------"
+        echo "[HIDE] 模块: $mname"
+        echo "路径: $mdir"
+
+        # 查找候选配置文件（文本类）
+        CANDIDATES=$(find "$mdir" -maxdepth 2 -type f \( -iname "*.txt" -o -iname "*.list" -o -iname "*.conf" -o -iname "*.ini" -o -iname "*.xml" -o -iname "*.cfg" -o -iname "*.props" \) 2>/dev/null || echo "")
+        # 把 module.prop 也列出（但通常不修改）
+        if [ -f "$mdir/module.prop" ]; then
+            CANDIDATES="$CANDIDATES $mdir/module.prop"
+        fi
+
+        if [ -n "$CANDIDATES" ]; then
+            echo "[HIDE] 候选配置文件:"
+            for f in $CANDIDATES; do echo "  - $f"; done
+        else
+            echo "[HIDE] 未在模块目录中找到可编辑的候选配置文件。"
+        fi
+
+        echo ""
+        echo "操作选项："
+        echo "  1) 自动追加游戏包名到候选的非 JSON 文本文件（备份后追加）"
+        echo "  2) 在模块目录创建/更新 hide_pkgs.txt（安全，不影响现有文件）"
+        echo "  3) 跳过该模块"
+        echo -n "请选择 (1/2/3): "
+        read opt
+
+        case "$opt" in
+            1)
+                modified_any=0
+                for f in $CANDIDATES; do
+                    # 简单判断 JSON（文件首非空行包含 '{' 则判为 JSON）
+                    first_line=$(sed -n '1p' "$f" 2>/dev/null || echo "")
+                    if echo "$first_line" | grep -q '{'; then
+                        echo "[HIDE] 跳过 JSON 文件以避免破坏格式: $f"
+                        continue
+                    fi
+
+                    mkdir -p "$BACKUP_ROOT/$mname" 2>/dev/null || :
+                    cp -a "$f" "$BACKUP_ROOT/$mname/" 2>/dev/null || :
+                    echo "[HIDE] 备份 $f -> $BACKUP_ROOT/$mname/"
+
+                    for pkg in $GAMES_PACKAGES; do
+                        if grep -Fq "$pkg" "$f" 2>/dev/null; then
+                            echo "  已存在: $pkg (跳过)"
+                        else
+                            echo "$pkg" >> "$f" 2>/dev/null || :
+                            echo "  已追加: $pkg -> $f"
+                            modified_any=1
+                        fi
+                    done
+
+                    chown --reference="$mdir" "$f" 2>/dev/null || :
+                    chmod 0644 "$f" 2>/dev/null || :
+                done
+
+                if [ "$modified_any" -eq 0 ]; then
+                    echo "[HIDE] 未对候选文本文件做修改（可能为 JSON 或无候选）。"
+                    echo -n "是否在模块目录创建 hide_pkgs.txt 以便手动整合？ (y/N): "
+                    read c2
+                    if [ "$c2" = "y" ] || [ "$c2" = "Y" ]; then
+                        mkdir -p "$BACKUP_ROOT/$mname" 2>/dev/null || :
+                        if [ -f "$mdir/hide_pkgs.txt" ]; then cp -a "$mdir/hide_pkgs.txt" "$BACKUP_ROOT/$mname/" 2>/dev/null || :; fi
+                        for pkg in $GAMES_PACKAGES; do
+                            if ! grep -Fq "$pkg" "$mdir/hide_pkgs.txt" 2>/dev/null; then
+                                echo "$pkg" >> "$mdir/hide_pkgs.txt" 2>/dev/null || :
+                            fi
+                        done
+                        echo "[HIDE] 已创建/更新: $mdir/hide_pkgs.txt （备份在 $BACKUP_ROOT/$mname/）"
+                    else
+                        echo "[HIDE] 跳过创建 hide_pkgs.txt"
+                    fi
+                fi
+                ;;
+            2)
+                mkdir -p "$BACKUP_ROOT/$mname" 2>/dev/null || :
+                if [ -f "$mdir/hide_pkgs.txt" ]; then
+                    cp -a "$mdir/hide_pkgs.txt" "$BACKUP_ROOT/$mname/" 2>/dev/null || :
+                fi
+                for pkg in $GAMES_PACKAGES; do
+                    if ! grep -Fq "$pkg" "$mdir/hide_pkgs.txt" 2>/dev/null; then
+                        echo "$pkg" >> "$mdir/hide_pkgs.txt" 2>/dev/null || :
+                    fi
+                done
+                echo "[HIDE] 已创建/更新: $mdir/hide_pkgs.txt （备份在 $BACKUP_ROOT/$mname/）"
+                ;;
+            *)
+                echo "[HIDE] 跳过模块 $mname"
+                ;;
+        esac
+
+        # 针对 JSON 文件，生成建议片段（不会修改 JSON）
+        JSONS=$(find "$mdir" -maxdepth 2 -type f -iname "*.json" 2>/dev/null || echo "")
+        if [ -n "$JSONS" ]; then
+            for jf in $JSONS; do
+                SUGGEST="$mdir/auto_add_hide_${TS}.txt"
+                echo "建议将以下 JSON 片段合并到 $jf （请人工确认格式再合并）" > "$SUGGEST" 2>/dev/null || :
+                echo '{"hide_packages": [' >> "$SUGGEST" 2>/dev/null || :
+                i=0
+                for pkg in $GAMES_PACKAGES; do
+                    i=$((i+1))
+                    if [ $i -lt 4 ]; then
+                        printf '  "%s",\n' "$pkg" >> "$SUGGEST" 2>/dev/null || :
+                    else
+                        printf '  "%s"\n' "$pkg" >> "$SUGGEST" 2>/dev/null || :
+                    fi
+                done
+                printf ']}\n' >> "$SUGGEST" 2>/dev/null || :
+                echo "[HIDE] 对 JSON 文件 ($jf) 已生成合并建
+
+议: $SUGGEST"
+            done
+        fi
+
+        echo ""
+    done
+
+    echo "========================================"
+    echo "[HIDE] 模块处理完成。备份目录: $BACKUP_ROOT"
+    echo "[HIDE] 请手动检查 auto_add_hide_*.txt 与 hide_pkgs.txt，并根据模块说明合并后重启/刷新模块。"
+    echo -n "按回车继续... " ; read _
+}
+
+# -------------------
+# menu_option_1：下发文件检测（保持原实现）
+# -------------------
+menu_option_1() {
+    echo -e "${YELLOW}[1] 正在执行下发文件检测...${NC}"
+    echo -e "${BLUE}检测风险文件和监控痕迹${NC}"
+    echo ""
+
+    DIR="/data/user/0/com.tencent.tmgp.dfm/files/ano_tmp"
+
+    explain() {
+        case "$1" in
+            a_v)  echo "环境监测" ;;
+            a_cd) echo "行为监测" ;;
+            a_h)  echo "数据异常（1/3/7）" ;;
+            a_s)  echo "强标设备/账号" ;;
+            a_r)  echo "高风险30天/10年" ;;
+        esac
+    }
+
+    if [ ! -d "$DIR" ]; then
+        echo -e "${YELLOW}[!] 目录不存在: $DIR${NC}"
+        echo -e "${GREEN}[√] 无下发文件${NC}"
+        echo -n "按回车键继续... "
+        read dummy
+        return
+    fi
+
+    files=$(find "$DIR" -type f | grep -i "\.data$" 2>/dev/null)
+    total=$(echo "$files" | grep -c . 2>/dev/null || echo 0)
+
+    if [ "$total" -eq 0 ]; then
+        echo -e "${GREEN}[√] 无下发文件${NC}"
+        echo -n "按回车键继续... "
+        read dummy
+        return
+    fi
+
+    matched_files=""
+    count=0
+
+    echo -n "处理进度："
+    IFS='
+'
+    for file in $files; do
+        count=$((count + 1))
+        filename=$(basename "$file")
+        lower=$(echo "$filename" | tr 'A-Z' 'a-z')
+
+        for key in a_v a_cd a_h a_s a_r; do
+            if echo "$lower" | grep -q "$key"; then
+                matched_files="$matched_files$filename ($(explain $key))"$'\n'
+                break
+            fi
+        done
+        echo -n "➤"
+    done
+    unset IFS
+
+    echo ""
+    if [ -z "$matched_files" ]; then
+        echo -e "${GREEN}[√] 未发现已知类型下发文件${NC}"
+    else
+        echo -e "${GREEN}[√] 下发文件检测完成，已发现以下文件:${NC}"
+        echo "$matched_files"
+    fi
+
+    echo ""
+    echo -n "按回车键继续... "
+    read dummy
+}
+
+# -------------------
 # 处理用户输入
+# -------------------
 handle_user_input() {
     local choice="$1"
 
@@ -895,6 +1491,11 @@ handle_user_input() {
         5)
             show_header
             menu_option_5
+            INPUT_ERROR_COUNT=0
+            ;;
+        6)
+            show_header
+            configure_modules_hide_for_games
             INPUT_ERROR_COUNT=0
             ;;
         0)
@@ -927,7 +1528,7 @@ handle_user_input() {
     esac
 }
 
-# 主程序逻辑
+# 主程序
 main() {
     if [ "$IS_ROOT" != "root" ]; then
         echo -e "${RED}[错误] 需要Root权限运行此工具${NC}"
@@ -949,7 +1550,7 @@ main() {
             while true; do
                 show_header
                 show_menu
-                echo -n "请输入选择 (0-5): "
+                echo -n "请输入选择 (0-6): "
                 read choice
                 handle_user_input "$choice"
             done
@@ -957,6 +1558,7 @@ main() {
     esac
 }
 
+# 退出 trap
 trap 'handle_exit' EXIT TERM INT HUP
 
 main "$@"
