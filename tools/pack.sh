@@ -107,12 +107,14 @@ cp "$INPUT_SCRIPT" "$TEMP_DIR/script_original.sh"
 # Optionally minify (remove comments, blank lines)
 if [ $MINIFY -eq 1 ]; then
     echo -e "  → Removing comments and blank lines..."
-    # Remove comment lines (but keep shebang)
-    grep -v '^[[:space:]]*#' "$TEMP_DIR/script_original.sh" > "$TEMP_DIR/script_no_comments.sh" || cp "$TEMP_DIR/script_original.sh" "$TEMP_DIR/script_no_comments.sh"
-    # Keep shebang if present
-    sed -i '1s/^/#!/' "$TEMP_DIR/script_no_comments.sh" 2>/dev/null || true
-    # Remove empty lines
-    sed '/^[[:space:]]*$/d' "$TEMP_DIR/script_no_comments.sh" > "$TEMP_DIR/script_processed.sh"
+    # Preserve shebang, remove standalone comment lines (lines starting with #), keep empty lines removal
+    # This preserves inline comments and # in strings/commands
+    awk '
+        NR==1 && /^#!/ { print; next }
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        { print }
+    ' "$TEMP_DIR/script_original.sh" > "$TEMP_DIR/script_processed.sh"
 else
     cp "$TEMP_DIR/script_original.sh" "$TEMP_DIR/script_processed.sh"
 fi

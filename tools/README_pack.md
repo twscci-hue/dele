@@ -2,6 +2,16 @@
 
 This directory contains tools for packaging `dele.sh` into encrypted native Android binaries using AES-256-CBC encryption, similar to gzexe but with stronger security.
 
+## ⚠️ IMPORTANT: Template Status
+
+**The launcher.c.template file contains PLACEHOLDER decompression code.** Before production use, you MUST:
+
+1. Integrate a real gzip decompression library (recommended: [miniz](https://github.com/richgel999/miniz))
+2. Replace the `tinfl_decompress_mem_to_heap()` placeholder implementation
+3. Test thoroughly with encrypted scripts
+
+The template currently demonstrates the structure and encryption/decryption flow, but will NOT properly decompress data without a real decompression library integrated.
+
 ## Overview
 
 The packaging system performs the following steps:

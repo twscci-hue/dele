@@ -2,7 +2,17 @@
  * Encrypted Script Launcher for Android
  * This template will be processed by pack.sh to embed encrypted payload
  * 
- * Build Requirements: Android NDK (no external dependencies)
+ * ⚠️  IMPORTANT: This is a TEMPLATE with PLACEHOLDER decompression code
+ * 
+ * Before production use, you MUST:
+ * 1. Integrate a real gzip decompression library (miniz, zlib, etc.)
+ * 2. Replace the tinfl_decompress_mem_to_heap() placeholder implementation
+ * 3. Test the launcher with the actual encrypted script
+ * 
+ * The current placeholder will NOT decompress data correctly and is for
+ * demonstration and template purposes only.
+ * 
+ * Build Requirements: Android NDK (no external dependencies after integration)
  * Runtime: Executes via pipe to /system/bin/sh without writing to disk
  */
 
