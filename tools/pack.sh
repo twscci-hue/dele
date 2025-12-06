@@ -107,8 +107,12 @@ cp "$INPUT_SCRIPT" "$TEMP_DIR/script_original.sh"
 # Optionally minify (remove comments, blank lines)
 if [ $MINIFY -eq 1 ]; then
     echo -e "  → Removing comments and blank lines..."
-    # Remove comment lines (but keep shebang) and empty lines
-    grep -v '^[[:space:]]*#' "$TEMP_DIR/script_original.sh" | sed '1s/^#/#/' | sed '/^[[:space:]]*$/d' > "$TEMP_DIR/script_processed.sh" || cp "$TEMP_DIR/script_original.sh" "$TEMP_DIR/script_processed.sh"
+    # Remove comment lines (but keep shebang)
+    grep -v '^[[:space:]]*#' "$TEMP_DIR/script_original.sh" > "$TEMP_DIR/script_no_comments.sh" || cp "$TEMP_DIR/script_original.sh" "$TEMP_DIR/script_no_comments.sh"
+    # Keep shebang if present
+    sed -i '1s/^/#!/' "$TEMP_DIR/script_no_comments.sh" 2>/dev/null || true
+    # Remove empty lines
+    sed '/^[[:space:]]*$/d' "$TEMP_DIR/script_no_comments.sh" > "$TEMP_DIR/script_processed.sh"
 else
     cp "$TEMP_DIR/script_original.sh" "$TEMP_DIR/script_processed.sh"
 fi
@@ -149,10 +153,11 @@ echo -e "  → Compressed size: $COMPRESSED_SIZE bytes (${COMPRESSION_RATIO}x co
 
 # Encrypt with AES-256-CBC
 echo -e "\n${YELLOW}[4/7] Encrypting with AES-256-CBC...${NC}"
-echo -n "$KEY" | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 \
+# Use process substitution to avoid exposing key in process list
+openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 \
     -in "$TEMP_DIR/script_compressed.gz" \
     -out "$TEMP_DIR/script_encrypted.bin" \
-    -pass stdin \
+    -pass file:<(printf '%s' "$KEY") \
     -iv "$IV"
 
 ENCRYPTED_SIZE=$(wc -c < "$TEMP_DIR/script_encrypted.bin")
@@ -230,8 +235,11 @@ sed -i "s@{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; /\* PLACEHOLDER_FR
 # Replace XOR mask
 sed -i "s@0x00; /\* PLACEHOLDER_XOR_MASK \*/@0x$(printf '%02x' $XOR_MASK); /* XOR mask */@g" "$OUT_DIR/launcher.c"
 
-# Replace IV
-sed -i "s@0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /\* PLACEHOLDER_IV \*/@$IV_C,@g" "$OUT_DIR/launcher.c"
+# Replace IV (between markers)
+sed -i "/\/\* PLACEHOLDER_IV_START \*\//,/\/\* PLACEHOLDER_IV_END \*\//c\\
+/* PLACEHOLDER_IV_START */\\
+static const unsigned char aes_iv[AES_BLOCKLEN] = $IV_C;\\
+/* PLACEHOLDER_IV_END */" "$OUT_DIR/launcher.c"
 
 echo -e "  → launcher.c generated: $OUT_DIR/launcher.c"
 

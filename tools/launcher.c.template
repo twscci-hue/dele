@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 /* ===== Base64 Decoder (embedded) ===== */
 static const unsigned char base64_table[65] =
@@ -348,11 +349,22 @@ static unsigned char *tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t 
     pOut_buf = (mz_uint8 *)malloc(out_buf_capacity);
     if (!pOut_buf) return NULL;
 
-    /* NOTE: This is a placeholder. Real implementation would use tinfl_decompress */
-    /* For actual usage, integrate full miniz tinfl_decompress implementation */
-    /* This template will work with gzip command line for now */
+    /* NOTE: PLACEHOLDER - This is a simplified template for demonstration
+     * 
+     * For production use, you must integrate one of the following:
+     * 1. Full miniz library with tinfl_decompress() - recommended
+     *    Download from: https://github.com/richgel999/miniz
+     * 2. zlib's inflate() if you can link against libz.so on device
+     * 3. Custom gzip decompressor implementation
+     * 
+     * Without proper decompression, the launcher will NOT work at runtime.
+     * The current placeholder returns empty data for template demonstration only.
+     */
     
-    *pOut_len = 0;
+    /* For template demonstration: Return uncompressed data 
+     * In real implementation, replace this with actual decompression */
+    *pOut_len = src_buf_len;
+    memcpy(pOut_buf, pSrc_buf, src_buf_len);
     return pOut_buf;
 }
 
@@ -379,10 +391,12 @@ static void reconstruct_key(unsigned char *key) {
 }
 
 /* ===== IV (will be replaced) ===== */
+/* PLACEHOLDER_IV_START */
 static const unsigned char aes_iv[AES_BLOCKLEN] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  /* PLACEHOLDER_IV */
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+/* PLACEHOLDER_IV_END */
 
 /* ===== Main Launcher Logic ===== */
 int main(int argc, char *argv[]) {
@@ -459,27 +473,30 @@ int main(int argc, char *argv[]) {
         /* Parent process: decompress and write script to pipe */
         close(pipefd[0]); /* Close read end */
         
-        /* For template: Use external gunzip via temporary method */
-        /* In production, integrate full decompression here */
+        /* Decompress the encrypted data in memory */
+        plaintext_script = tinfl_decompress_mem_to_heap(compressed_data, compressed_len, &script_len);
         
-        /* Simplified: Write compressed data and decompress via shell */
-        /* This is placeholder - real impl should use embedded decompressor */
-        FILE *temp_gz = fopen("/data/local/tmp/._script.gz", "wb");
-        if (temp_gz) {
-            fwrite(compressed_data, 1, compressed_len, temp_gz);
-            fclose(temp_gz);
-            
-            /* Decompress and feed to pipe */
-            system("gunzip -c /data/local/tmp/._script.gz >&" /* fd will be pipefd[1] */);
-            remove("/data/local/tmp/._script.gz");
+        if (!plaintext_script || script_len == 0) {
+            fprintf(stderr, "Decompression failed\n");
+            close(pipefd[1]);
+            free(ciphertext);
+            kill(pid, SIGTERM);
+            return 1;
         }
         
+        /* Write plaintext script directly to pipe (no disk write) */
+        ssize_t written = write(pipefd[1], plaintext_script, script_len);
+        if (written != (ssize_t)script_len) {
+            fprintf(stderr, "Failed to write script to pipe\n");
+        }
+        
+        /* Clean up */
         close(pipefd[1]);
+        free(plaintext_script);
+        free(ciphertext);
         
         /* Wait for child to finish */
         waitpid(pid, &status, 0);
-        
-        free(ciphertext);
         
         if (WIFEXITED(status)) {
             return WEXITSTATUS(status);

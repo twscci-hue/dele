@@ -167,10 +167,10 @@ build_arch() {
     
     # Compile
     local output_path="$OUTPUT_DIR/$output_name"
-    echo -e "  Compiler: $(basename $compiler)"
+    echo -e "  Compiler: $(basename "$compiler")"
     echo -e "  Output: $output_path"
     
-    if $compiler $COMMON_FLAGS $extra_flags -o "$output_path" "$LAUNCHER_SOURCE"; then
+    if "$compiler" $COMMON_FLAGS $extra_flags -o "$output_path" "$LAUNCHER_SOURCE"; then
         # Strip symbols for smaller size
         if [ -f "$TOOLCHAIN/bin/llvm-strip" ]; then
             "$TOOLCHAIN/bin/llvm-strip" "$output_path"
