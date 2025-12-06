@@ -1,0 +1,20 @@
+# Build artifacts from packaging system
+release/
+tools/release/
+
+# Generated launcher source (contains encrypted payload and keys)
+launcher.c
+
+# Build instructions (may contain encryption keys)
+BUILD_INSTRUCTIONS.txt
+
+# Compiled binaries (architecture-specific)
+dele_arm64
+dele_armv7
+dele_x86
+*.o
+*.so
+
+# Temporary files
+*.tmp
+*.temp
